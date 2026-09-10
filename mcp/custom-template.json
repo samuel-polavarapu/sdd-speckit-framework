@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Custom MCP connector entry",
+  "description": "Contract for a connector the user adds that is not in catalog.json. The installer validates each custom answer against this before merging it into .mcp.json. Once written, a custom entry is indistinguishable from a catalog entry.",
+  "type": "object",
+  "required": ["id", "transport"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "Server name as it appears under mcpServers. Lowercase, digits and hyphens."
+    },
+    "displayName": { "type": "string" },
+    "description": { "type": "string" },
+    "transport": {
+      "type": "string",
+      "enum": ["http", "sse", "stdio"],
+      "description": "http and sse need url. stdio needs command."
+    },
+    "url": {
+      "type": "string",
+      "pattern": "^https?://",
+      "description": "Required for http and sse. Forbidden for stdio."
+    },
+    "command": {
+      "type": "string",
+      "description": "Required for stdio. Forbidden for http and sse."
+    },
+    "args": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "headerName": {
+      "type": "string",
+      "description": "Optional auth header name, e.g. Authorization.",
+      "default": "Authorization"
+    },
+    "credentialEnvVar": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]*$",
+      "description": "Env var holding the credential. Referenced as ${VAR} so the secret itself is never written to .mcp.json."
+    },
+    "env": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Extra env vars for a stdio server."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "transport": { "enum": ["http", "sse"] } }, "required": ["transport"] },
+      "then": { "required": ["url"], "not": { "required": ["command"] } }
+    },
+    {
+      "if": { "properties": { "transport": { "const": "stdio" } }, "required": ["transport"] },
+      "then": { "required": ["command"], "not": { "required": ["url"] } }
+    }
+  ],
+  "examples": [
+    { "id": "acme-tickets", "transport": "http", "url": "https://mcp.acme.example/mcp", "credentialEnvVar": "ACME_TOKEN" },
+    { "id": "local-db", "transport": "stdio", "command": "npx", "args": ["-y", "@acme/db-mcp"], "env": { "DB_URL": "postgres://localhost/dev" } }
+  ]
+}

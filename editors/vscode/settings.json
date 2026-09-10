@@ -1,0 +1,25 @@
+{
+  "files.associations": {
+    "*.md": "markdown"
+  },
+  "files.exclude": {
+    "**/.specify/cache": true
+  },
+  "search.exclude": {
+    "**/.specify/cache": true,
+    "**/node_modules": true
+  },
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "markdown.validate.enabled": true,
+  "editor.formatOnSave": true,
+  "terminal.integrated.scrollback": 20000,
+  "git.branchProtection": [
+    "main",
+    "master"
+  ],
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.patterns": {
+    "spec.md": "plan.md, research.md, data-model.md, quickstart.md, tasks.md, CHANGELOG.md"
+  }
+}

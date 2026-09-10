@@ -1,0 +1,12 @@
+{
+  "$comment": "TEMPLATE ONLY. Rally MCP is tenant-hosted and has no public endpoint. Replace RALLY_MCP_URL_PLACEHOLDER with your organization's own Rally MCP URL, which a Rally admin provisions. The installer prompts for it; it never defaults it.",
+  "mcpServers": {
+    "rally": {
+      "type": "http",
+      "url": "RALLY_MCP_URL_PLACEHOLDER",
+      "headers": {
+        "Authorization": "Bearer ${RALLY_API_KEY}"
+      }
+    }
+  }
+}

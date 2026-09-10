@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "verifiedOn": "2026-09-10",
+  "editors": {
+    "vscode": {
+      "label": "VS Code",
+      "default": true,
+      "targetDir": ".vscode",
+      "copy": [
+        { "from": "editors/vscode/extensions.json", "to": ".vscode/extensions.json", "mergeStrategy": "merge-recommendations" },
+        { "from": "editors/vscode/settings.json", "to": ".vscode/settings.json", "mergeStrategy": "merge-shallow" }
+      ],
+      "extensionId": "anthropic.claude-code",
+      "installUri": "vscode:extension/anthropic.claude-code",
+      "mergesPresetExtensions": true,
+      "note": "Contributors get a Recommended Extensions prompt on first open."
+    },
+    "cursor": {
+      "label": "Cursor",
+      "default": false,
+      "targetDir": ".vscode",
+      "copy": [
+        { "from": "editors/vscode/extensions.json", "to": ".vscode/extensions.json", "mergeStrategy": "merge-recommendations" },
+        { "from": "editors/vscode/settings.json", "to": ".vscode/settings.json", "mergeStrategy": "merge-shallow" }
+      ],
+      "extensionId": "anthropic.claude-code",
+      "installUri": "cursor:extension/anthropic.claude-code",
+      "mergesPresetExtensions": true,
+      "note": "Cursor is a VS Code fork, so it reads .vscode/ and uses the same extension id."
+    },
+    "jetbrains": {
+      "label": "JetBrains IDEs (IntelliJ IDEA, PyCharm, WebStorm, Rider)",
+      "default": false,
+      "targetDir": ".idea",
+      "copy": [
+        { "from": "editors/jetbrains/externalDependencies.xml", "to": ".idea/externalDependencies.xml", "mergeStrategy": "replace" }
+      ],
+      "pluginId": "com.anthropic.code.plugin",
+      "marketplaceUrl": "https://plugins.jetbrains.com/plugin/27310-claude-code-beta-",
+      "mergesPresetExtensions": false,
+      "note": "The plugin wraps the separately installed Claude Code CLI. Preset extension fragments are VS Code specific and are not applied here."
+    },
+    "none": {
+      "label": "Other, or none",
+      "default": false,
+      "targetDir": null,
+      "copy": [],
+      "mergesPresetExtensions": false,
+      "note": "Nothing is written. ONBOARDING.md points to code.claude.com/docs/en/vs-code and /jetbrains."
+    }
+  },
+  "aliases": {
+    "vs-code": "vscode",
+    "code": "vscode",
+    "intellij": "jetbrains",
+    "idea": "jetbrains",
+    "pycharm": "jetbrains",
+    "webstorm": "jetbrains",
+    "rider": "jetbrains",
+    "other": "none",
+    "skip": "none"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "id": "dotnet-aspire",
+  "label": ".NET distributed app (Aspire)",
+  "description": ".NET 9 with Aspire orchestration, EF Core, xUnit and Testcontainers.",
+  "overrides": ["plan-template.md", "tasks-template.md"],
+  "speckit": {
+    "presetHint": "Run `specify preset search` for a published preset that matches this stack before relying on these local overrides."
+  },
+  "defaults": {
+    "language": "C# 13 / .NET 9",
+    "orchestration": ".NET Aspire",
+    "storage": "SQL Server or PostgreSQL + EF Core 9",
+    "unitTest": "xUnit",
+    "integrationTest": "Testcontainers",
+    "lint": "dotnet format + Roslyn analyzers",
+    "packageManager": "NuGet with central package management"
+  },
+  "recommendedMcp": ["github", "atlassian"]
+}

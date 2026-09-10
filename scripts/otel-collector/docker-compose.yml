@@ -1,0 +1,22 @@
+# Local OpenTelemetry collector for Claude Code metrics.
+#
+# Scaffolded only when you opt into telemetry with the otlp exporter.
+#
+#   docker compose up -d      # start
+#   docker compose logs -f    # watch metrics arrive
+#   docker compose down       # stop
+#
+# Metrics land in ./data/metrics.json, which the telemetry-report skill reads.
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: sdd-speckit-otel-collector
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel/config.yaml:ro
+      - ./data:/data
+    ports:
+      - "4317:4317"   # OTLP gRPC — matches OTEL_EXPORTER_OTLP_ENDPOINT
+      - "4318:4318"   # OTLP HTTP
+    restart: unless-stopped

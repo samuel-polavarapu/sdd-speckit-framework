@@ -1,0 +1,26 @@
+{
+  "name": "create-sdd-speckit-app",
+  "version": "0.1.0",
+  "description": "Interactive installer for the SDD Speckit Framework: scaffolds a spec-driven project wired to Claude Code, MCP connectors and your editor.",
+  "type": "module",
+  "bin": {
+    "create-sdd-speckit-app": "bin/cli.js"
+  },
+  "files": [
+    "bin",
+    "src"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.7.0"
+  },
+  "keywords": [
+    "spec-driven-development",
+    "speckit",
+    "claude-code",
+    "scaffold"
+  ],
+  "license": "MIT"
+}

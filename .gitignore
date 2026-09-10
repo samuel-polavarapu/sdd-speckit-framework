@@ -1,0 +1,16 @@
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Local OTel output — usage volume for your project, not for the repo
+scripts/otel-collector/data/
+.specify/usage-log.txt
+
+# Constitution guard marker — transient, must never be committed
+.specify/.constitution-unlock
+
+.DS_Store
+*.log
+.env
+.env.local

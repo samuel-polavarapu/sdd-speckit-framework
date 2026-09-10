@@ -1,0 +1,34 @@
+# Receives Claude Code metrics and logs, and writes them to a local file.
+# Nothing leaves this machine. Add an exporter of your own to forward them.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 10s
+
+exporters:
+  file:
+    path: /data/metrics.json
+  debug:
+    verbosity: normal
+
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [file, debug]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [file, debug]
+  telemetry:
+    logs:
+      level: info

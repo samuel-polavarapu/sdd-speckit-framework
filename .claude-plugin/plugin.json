@@ -1,0 +1,57 @@
+{
+  "name": "sdd-speckit",
+  "displayName": "SDD Speckit Framework",
+  "version": "0.1.0",
+  "description": "Spec-Driven Development starter kit: Speckit phase commands, phase-matched subagents, workflow skills, and guard hooks for Claude Code.",
+  "author": {
+    "name": "SDD Speckit Framework maintainers"
+  },
+  "homepage": "https://github.com/github/spec-kit",
+  "repository": "https://github.com/your-org/sdd-speckit-framework",
+  "license": "MIT",
+  "keywords": [
+    "spec-driven-development",
+    "speckit",
+    "sdd",
+    "planning",
+    "workflow"
+  ],
+  "userConfig": {
+    "TELEMETRY_ENABLED": {
+      "type": "boolean",
+      "title": "OpenTelemetry usage monitoring",
+      "description": "Emit local Claude Code usage metrics. Off unless you turn it on.",
+      "default": false
+    },
+    "OTEL_EXPORTER": {
+      "type": "string",
+      "title": "OTel metrics exporter",
+      "description": "Exporter used when telemetry is on: console or otlp.",
+      "default": "console"
+    },
+    "OTEL_ENDPOINT": {
+      "type": "string",
+      "title": "OTLP endpoint",
+      "description": "Collector endpoint. Required only when the exporter is otlp.",
+      "default": ""
+    },
+    "STACK_PRESET": {
+      "type": "string",
+      "title": "Tech stack preset",
+      "description": "Preset id that supplies the plan and tasks template overrides.",
+      "default": "custom"
+    },
+    "PRIMARY_ASSISTANT": {
+      "type": "string",
+      "title": "Primary AI assistant",
+      "description": "Speckit integration key: claude, copilot, cursor-agent or generic.",
+      "default": "claude"
+    },
+    "EDITOR_CHOICE": {
+      "type": "string",
+      "title": "Preferred code editor",
+      "description": "vscode, cursor, jetbrains or none.",
+      "default": "vscode"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "sdd-speckit-framework",
+  "description": "Spec-Driven Development starter kit for Claude Code, packaging the Speckit workflow.",
+  "owner": {
+    "name": "SDD Speckit Framework maintainers",
+    "url": "https://github.com/your-org/sdd-speckit-framework"
+  },
+  "plugins": [
+    {
+      "name": "sdd-speckit",
+      "displayName": "SDD Speckit Framework",
+      "description": "Speckit phase commands, phase-matched subagents, workflow skills and guard hooks.",
+      "source": "./"
+    }
+  ]
+}

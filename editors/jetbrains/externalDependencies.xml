@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copied to .idea/externalDependencies.xml when a JetBrains IDE is selected.
+
+  On project open, the IDE shows a "Required Plugins" prompt for anything listed here.
+
+  Plugin id verified against the JetBrains Marketplace listing for "Claude Code [Beta]"
+  (marketplace plugin 27310, vendor Anthropic PBC). The id is the marketplace xmlId, not the
+  listing's display name.
+
+  The plugin wraps the separately installed Claude Code CLI. It does not bundle it. Install the
+  CLI as well, or the plugin has nothing to drive.
+-->
+<component name="ExternalDependencies">
+  <plugin id="com.anthropic.code.plugin" />
+</component>
