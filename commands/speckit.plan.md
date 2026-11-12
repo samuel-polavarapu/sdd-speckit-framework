@@ -17,7 +17,7 @@ name technology.
 3. `.specify/templates/overrides/plan-template.md`, then
    `${CLAUDE_PLUGIN_ROOT}/templates/plan-template.md`. **A stack preset override wins over the
    base template.** Check the override path first.
-4. `.claude/settings.json` → the recorded stack preset, if any.
+4. `.specify/sdd-speckit.json` → `stack`, the recorded stack preset, if any.
 5. The existing codebase. Reuse what is there before you introduce anything new.
 
 ## Refuse to start when

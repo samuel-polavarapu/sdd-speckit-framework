@@ -12,7 +12,7 @@
 set -euo pipefail
 
 FRAMEWORK_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VERSION="0.1.0"
+VERSION="0.2.0"
 
 TARGET="."
 YES=0
@@ -44,7 +44,8 @@ Options (identical to create-sdd-speckit-app)
   --otel-exporter=<console|otlp>
   --otel-endpoint=<url>
   --stack=<id>               $(ls -1 "$FRAMEWORK_ROOT/presets" 2>/dev/null | tr '\n' '|' | sed 's/|$//')|custom
-  --assistant=<claude|copilot|cursor|other>
+  --assistant=<claude|copilot|both|cursor|other>
+                             both = Claude Code and GitHub Copilot
   --secondary-assistants=<a,b>
   --mcp=<ids>                Comma separated. See mcp/catalog.json
   --mcp-custom=<name>:<transport>:<url-or-command>   Repeatable
@@ -156,8 +157,10 @@ if [ "$YES" -eq 0 ]; then
   ask_choice STACK "Which tech stack?" "custom" "${STACKS[@]}"
 
   # 3 primary assistant
-  ask_choice ASSISTANT "Primary AI coding assistant?" "claude" "claude" "copilot" "cursor" "other"
-  read -r -p "Secondary assistants, comma separated (blank for none): " SECONDARY || true
+  ask_choice ASSISTANT "Primary AI coding assistant?" "claude" "claude" "copilot" "both" "cursor" "other"
+  if [ "$ASSISTANT" != "both" ]; then
+    read -r -p "Secondary assistants, comma separated (blank for none): " SECONDARY || true
+  fi
 
   # 4 MCP connectors
   echo ""
@@ -276,25 +279,44 @@ echo ""
 
 run mkdir -p "$TARGET"
 
-integration="$ASSISTANT"
-case "$ASSISTANT" in
-  cursor) integration="cursor-agent" ;;
-  other) integration="generic" ;;
-esac
+# --assistant=both is Claude Code primary, GitHub Copilot secondary (as in config-schema.js).
+if [ "$ASSISTANT" = "both" ]; then
+  ASSISTANT="claude"
+  SECONDARY="${SECONDARY:+$SECONDARY,}copilot"
+fi
+chosen=",$ASSISTANT,$SECONDARY,"
+TARGET_COPILOT=0; case "$chosen" in *,copilot,*) TARGET_COPILOT=1 ;; esac
+TARGET_CLAUDE=0; case "$chosen" in *,claude,*) TARGET_CLAUDE=1 ;; esac
+[ "$TARGET_COPILOT" -eq 0 ] && TARGET_CLAUDE=1
+
+integration_for() {
+  case "$1" in
+    claude|copilot) echo "$1" ;;
+    cursor) echo "cursor-agent" ;;
+    *) echo "generic" ;;
+  esac
+}
+integrations="$(integration_for "$ASSISTANT")"
+for s in claude copilot; do
+  case "$chosen" in *,$s,*) [ "$s" != "$ASSISTANT" ] && integrations="$integrations $s" ;; esac
+done
 
 if [ "$NO_SPECKIT" -eq 0 ] && command -v uvx >/dev/null 2>&1; then
-  if [ "$DRY_RUN" -eq 1 ]; then
-    echo "  would: uvx --from git+https://github.com/github/spec-kit.git specify init --here --force --non-interactive --integration $integration"
-  else
-    ( cd "$TARGET" && uvx --from git+https://github.com/github/spec-kit.git specify init \
-        --here --force --non-interactive --integration "$integration" ) \
-      || echo "  - specify init failed — vendored templates used instead"
-  fi
+  for integration in $integrations; do
+    if [ "$DRY_RUN" -eq 1 ]; then
+      echo "  would: uvx --from git+https://github.com/github/spec-kit.git specify init --here --force --non-interactive --integration $integration"
+    else
+      ( cd "$TARGET" && uvx --from git+https://github.com/github/spec-kit.git specify init \
+          --here --force --non-interactive --integration "$integration" ) \
+        || { echo "  - specify init --integration $integration failed — vendored templates used instead"; break; }
+    fi
+  done
 else
   echo "  - Speckit init skipped (uvx absent or --no-speckit); vendored templates used"
 fi
 
 for d in commands agents skills hooks templates; do
+  [ "$TARGET_CLAUDE" -eq 1 ] || break
   [ -d "$FRAMEWORK_ROOT/$d" ] || continue
   run mkdir -p "$TARGET/.claude/sdd-speckit"
   if [ "$DRY_RUN" -eq 1 ]; then echo "  would: copy $d/ -> .claude/sdd-speckit/$d/"
@@ -320,18 +342,30 @@ STACK="$STACK" ASSISTANT="$ASSISTANT" SECONDARY="$SECONDARY" MCP="$MCP" \
 EDITOR_CHOICE="$EDITOR_CHOICE" MCP_CUSTOM_JOINED="$CUSTOM_JOINED" MCP_INPUT_JOINED="$INPUT_JOINED" \
 python3 "$FRAMEWORK_ROOT/installer/write-config.py"
 
+if [ "$TARGET_CLAUDE" -eq 1 ]; then
 cat <<EOF
 
-Register the plugin
+Claude Code — register the plugin
   claude plugin marketplace add $FRAMEWORK_ROOT
   claude plugin install sdd-speckit@sdd-speckit-framework
 Or, inside an interactive Claude Code session:
   /plugin marketplace add $FRAMEWORK_ROOT
   /plugin install sdd-speckit@sdd-speckit-framework
 
-An OAuth connector needs a one-time /mcp authorization inside Claude Code. Writing .mcp.json
-does not complete the login.
-
-Next step
+Next step in Claude Code
   /sdd-speckit:speckit.constitution
 EOF
+fi
+if [ "$TARGET_COPILOT" -eq 1 ]; then
+cat <<EOF
+
+GitHub Copilot — nothing to register
+  The phases are skills in .github/skills/sdd-speckit-*/, and the phase agents are in .github/agents/.
+  Commit .github/ and .specify/sdd-speckit/ so the Copilot cloud agent sees them on the default branch.
+  The Copilot cloud agent does not read .mcp.json. Add the same servers in the repository's
+  Settings → Copilot → Coding agent → MCP configuration.
+
+Next step in GitHub Copilot
+  /sdd-speckit-constitution
+EOF
+fi

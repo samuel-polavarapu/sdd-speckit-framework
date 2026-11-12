@@ -1,7 +1,7 @@
 {
   "name": "sdd-speckit",
   "displayName": "SDD Speckit Framework",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Spec-Driven Development starter kit: Speckit phase commands, phase-matched subagents, workflow skills, and guard hooks for Claude Code.",
   "author": {
     "name": "SDD Speckit Framework maintainers"
@@ -14,7 +14,8 @@
     "speckit",
     "sdd",
     "planning",
-    "workflow"
+    "workflow",
+    "github-copilot"
   ],
   "userConfig": {
     "TELEMETRY_ENABLED": {
@@ -44,7 +45,7 @@
     "PRIMARY_ASSISTANT": {
       "type": "string",
       "title": "Primary AI assistant",
-      "description": "Speckit integration key: claude, copilot, cursor-agent or generic.",
+      "description": "Speckit integration key: claude, copilot, cursor-agent or generic. Use the installer's --assistant=both to also render the GitHub Copilot files.",
       "default": "claude"
     },
     "EDITOR_CHOICE": {

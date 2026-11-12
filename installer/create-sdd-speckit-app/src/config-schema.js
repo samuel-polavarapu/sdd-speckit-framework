@@ -3,7 +3,7 @@
  * Adding a question is a change here first, then in prompts.js and speckit.setup.md.
  */
 
-export const CONFIG_VERSION = 1;
+export const CONFIG_VERSION = 2;
 
 export const ASSISTANTS = [
   { id: "claude", label: "Claude Code", speckitIntegration: "claude", default: true },
@@ -11,6 +11,37 @@ export const ASSISTANTS = [
   { id: "cursor", label: "Cursor", speckitIntegration: "cursor-agent" },
   { id: "other", label: "Other / generic", speckitIntegration: "generic" },
 ];
+
+/** Shortcut accepted wherever a primary assistant is: Claude Code primary, Copilot secondary. */
+export const BOTH = "both";
+
+/** Resolves --assistant=both, and drops a secondary that repeats the primary. */
+export function normalizeAssistant(assistant) {
+  const a = { primary: assistant?.primary ?? "claude", secondary: [...(assistant?.secondary ?? [])] };
+  if (a.primary === BOTH) {
+    a.primary = "claude";
+    a.secondary.push("copilot");
+  }
+  a.secondary = [...new Set(a.secondary)].filter((s) => s !== a.primary);
+  return a;
+}
+
+/**
+ * Which assistants get files written. Copilot files when copilot is chosen at all. Claude Code
+ * files when claude is chosen, and also when neither is: before 0.2.0 every project got the
+ * Claude Code files, and a Cursor or generic project still does.
+ */
+export function targetsFor(assistant) {
+  const chosen = new Set([assistant?.primary, ...(assistant?.secondary ?? [])]);
+  const copilot = chosen.has("copilot");
+  const claude = chosen.has("claude") || !copilot;
+  return { claude, copilot };
+}
+
+export function targetList(assistant) {
+  const t = targetsFor(assistant);
+  return [t.claude && "claude", t.copilot && "copilot"].filter(Boolean);
+}
 
 export const EDITORS = ["vscode", "cursor", "jetbrains", "none"];
 export const TRANSPORTS = ["http", "sse", "stdio"];
@@ -76,6 +107,9 @@ export function validateConfig(cfg) {
   if (!cfg.assistant?.primary) errors.push("assistant.primary must be answered");
   else if (!ASSISTANTS.some((a) => a.id === cfg.assistant.primary))
     errors.push(`assistant.primary "${cfg.assistant.primary}" is unknown`);
+  for (const s of cfg.assistant?.secondary ?? []) {
+    if (!ASSISTANTS.some((a) => a.id === s)) errors.push(`secondary assistant "${s}" is unknown`);
+  }
   if (!cfg.mcp || !Array.isArray(cfg.mcp.catalog) || !Array.isArray(cfg.mcp.custom))
     errors.push("mcp must be answered, even if the answer is none");
   if (!cfg.editor) errors.push("editor must be answered");

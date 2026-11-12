@@ -1,0 +1,21 @@
+{
+  "id": "python-fastapi",
+  "label": "Python service (FastAPI)",
+  "description": "FastAPI service with SQLAlchemy, Alembic, pytest and Ruff.",
+  "overrides": ["plan-template.md", "tasks-template.md"],
+  "speckit": {
+    "presetHint": "Run `specify preset search` for a published preset that matches this stack before relying on these local overrides."
+  },
+  "defaults": {
+    "language": "Python 3.12",
+    "framework": "FastAPI",
+    "storage": "PostgreSQL 17 + SQLAlchemy 2.0",
+    "migrations": "Alembic",
+    "unitTest": "pytest",
+    "contractTest": "schemathesis",
+    "lint": "Ruff",
+    "typeCheck": "mypy --strict",
+    "packageManager": "uv"
+  },
+  "recommendedMcp": ["github", "atlassian"]
+}

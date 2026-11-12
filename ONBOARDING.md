@@ -8,7 +8,8 @@ A walk-through: install, answer five questions, finish the MCP logins, then run 
 ### 1. Check your tools
 
 ```bash
-claude --version          # Claude Code
+claude --version          # Claude Code, if your team uses it
+code --version            # VS Code with GitHub Copilot Chat, or `copilot --version` for the Copilot CLI
 node -v                   # 18+ for the reference installer
 uvx --version             # optional, lets the installer delegate to Speckit's own init
 ```
@@ -31,13 +32,16 @@ No Node: `./installer/install.sh my-app`.
 |---|---|---|
 | 1 | **Telemetry** | Say no on day one. Turn it on later with `/sdd-speckit:speckit.setup telemetry`. |
 | 2 | **Tech stack** | Pick the closest preset. It pre-fills the plan and tasks templates. `custom` if none fit. |
-| 3 | **Primary assistant** | `Claude Code` unless your team standardized elsewhere. Add secondaries if people differ. |
+| 3 | **Primary assistant** | `Claude Code`, `GitHub Copilot`, or **Both** when people on the team differ. |
 | 4 | **MCP connectors** | Pick only what you will use this week. Adding more later is one command. |
-| 5 | **Editor** | VS Code or JetBrains. Wires the Claude Code extension for every contributor. |
+| 5 | **Editor** | VS Code or JetBrains. Wires the extension or plugin of every chosen assistant for every contributor. |
 
 Nothing is written until you confirm. `--dry-run` shows the plan and writes nothing.
 
-### 4. Register the plugin
+### 4. Register the plugin (Claude Code only)
+
+GitHub Copilot has nothing to register: commit `.github/` and `.specify/sdd-speckit/`, and the
+`/sdd-speckit-*` skills appear in Copilot Chat (agent mode) and the Copilot CLI.
 
 ```bash
 claude plugin marketplace add /path/to/sdd-speckit-framework
@@ -49,7 +53,9 @@ If those subcommands are unavailable in your version, run the same two inside a 
 
 ## Day 1 — finish the connector logins
 
-**Writing `.mcp.json` does not log you in.** Open Claude Code in the project:
+**Writing `.mcp.json` does not log you in.** Both assistants read the same `.mcp.json`. In
+GitHub Copilot, start each server when VS Code or the CLI asks and authorize it. In Claude Code,
+open the project and run:
 
 ```
 /mcp
@@ -72,10 +78,11 @@ If you did not have it to hand, get it from your platform team and run
 ## Day 1 — your editor
 
 **VS Code / Cursor** — open the project. Accept the Recommended Extensions prompt. It installs
-`anthropic.claude-code` plus your preset's language extensions.
+`anthropic.claude-code` and/or `github.copilot` + `github.copilot-chat`, plus your preset's
+language extensions.
 
 **JetBrains** — open the project. Accept the Required Plugins prompt, which installs
-`com.anthropic.code.plugin` ("Claude Code [Beta]"). **The plugin wraps the separately installed
+`com.anthropic.code.plugin` ("Claude Code [Beta]") and/or `com.github.copilot` ("GitHub Copilot"). **The plugin wraps the separately installed
 Claude Code CLI — it does not bundle it.** Install the CLI too, or the plugin has nothing to drive.
 
 **Other / none** — nothing was written. If you change your mind, see
@@ -87,6 +94,9 @@ Claude Code CLI — it does not bundle it.** Install the CLI too, or the plugin 
 ```
 /sdd-speckit:speckit.constitution
 ```
+
+In GitHub Copilot, every `/sdd-speckit:speckit.X` below is `/sdd-speckit-X`, for example
+`/sdd-speckit-constitution`.
 
 Write three to five principles your team will actually enforce. Keep gates N1–N4 unless you
 reject one out loud. **A principle nobody can fail is not a principle.**

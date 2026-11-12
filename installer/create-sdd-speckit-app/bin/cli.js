@@ -11,7 +11,11 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 
-import { defaultConfig, validateConfig, speckitIntegrationFor, ASSISTANTS, validateCustomMcp } from "../src/config-schema.js";
+import {
+  defaultConfig, validateConfig, speckitIntegrationFor, ASSISTANTS, BOTH, validateCustomMcp,
+  normalizeAssistant, targetsFor, targetList,
+} from "../src/config-schema.js";
+import { renderCopilot, writeCopilot, checkCopilot } from "../src/copilot.js";
 import { askAll, makeUi, promptBackend, Cancelled } from "../src/prompts.js";
 import { scaffold } from "../src/scaffold.js";
 import { loadCatalog, connectorsNeedingInput } from "../src/mcp-map.js";
@@ -19,7 +23,7 @@ import { loadPresets } from "../src/presets-map.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FRAMEWORK_ROOT = resolve(HERE, "..", "..", "..");
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 
 /* ------------------------------------------------------------------- args */
 
@@ -59,7 +63,8 @@ Options
   --otel-exporter=<console|otlp>   Default: console
   --otel-endpoint=<url>      Required when the exporter is otlp
   --stack=<id>               ${presets} | custom      Default: custom
-  --assistant=<id>           ${ASSISTANTS.map((a) => a.id).join(" | ")}      Default: claude
+  --assistant=<id>           ${[...ASSISTANTS.map((a) => a.id), BOTH].join(" | ")}      Default: claude
+                             ${BOTH} = Claude Code and GitHub Copilot (claude primary, copilot secondary)
   --secondary-assistants=<a,b>
   --mcp=<ids>                Comma separated from: ${connectors}
   --mcp-custom=<name>:<transport>:<url-or-command>   Repeatable
@@ -71,9 +76,17 @@ Options
   --no-speckit               Skip \`specify init\`; use the vendored templates
   --version, --help
 
-Non-interactive example
+GitHub Copilot files only (no questions)
+  --emit=copilot [dir]       Render the Copilot skills, custom agents, hooks and instructions into
+                             dir (default: .). Use it to add Copilot support to an existing repo.
+  --emit=copilot --check [--strict] [dir]
+                             Write nothing. Exit 1 if dir differs from a fresh render. --strict also
+                             fails on any file the render would not write (used for the dist/ copy).
+
+Non-interactive examples
   npx create-sdd-speckit-app my-app --yes --stack=python-fastapi --assistant=claude \\
       --telemetry=off --mcp=github,playwright --editor=vscode
+  npx create-sdd-speckit-app my-app --yes --assistant=both --mcp=github --editor=vscode
 
 A tenant-hosted connector such as Rally has no default URL. Supply it with --mcp-input, or the
 run fails rather than writing a guess.
@@ -129,6 +142,7 @@ function configFromFlags(flags) {
   if (flags.mcp) cfg.mcp.catalog = String(flags.mcp).split(",").map((s) => s.trim()).filter(Boolean);
   if (flags["mcp-custom"]) cfg.mcp.custom = flags["mcp-custom"].map(parseCustomMcpFlag);
   if (flags.editor) cfg.editor = flags.editor;
+  cfg.assistant = normalizeAssistant(cfg.assistant);
 
   // --mcp-input=rally.url=https://...
   cfg.mcp.inputs = {};
@@ -170,6 +184,7 @@ function summarize(cfg, result) {
   lines.push(`  2 Tech stack         ${cfg.stack}`);
   lines.push(`  3 Primary assistant  ${cfg.assistant.primary} (Speckit integration: ${speckitIntegrationFor(cfg.assistant.primary)})`);
   if (cfg.assistant.secondary?.length) lines.push(`    Secondary          ${cfg.assistant.secondary.join(", ")}`);
+  lines.push(`    Files written for  ${targetList(cfg.assistant).map((t) => (t === "claude" ? "Claude Code" : "GitHub Copilot")).join(" + ")}`);
   lines.push(`  4 MCP connectors     ${[...(cfg.mcp.catalog ?? []), ...(cfg.mcp.custom ?? []).map((c) => `${c.id} (custom)`)].join(", ") || "none"}`);
   lines.push(`  5 Editor             ${cfg.editor}`);
 
@@ -181,12 +196,16 @@ function summarize(cfg, result) {
     lines.push(`  \`specify init\` did not run (${result.speckit.fallbackReason ?? "skipped"}).`);
     lines.push("  The vendored templates were used instead. To get the real .specify/ layout, install uv");
     lines.push("  (https://docs.astral.sh/uv/) and run:");
-    lines.push(`    uvx --from git+https://github.com/github/spec-kit.git specify init --here --force --integration ${result.speckit.integration}`);
+    for (const integ of result.speckit.integrations ?? [result.speckit.integration]) {
+      lines.push(`    uvx --from git+https://github.com/github/spec-kit.git specify init --here --force --integration ${integ}`);
+    }
   }
 
+  const t = result.targets ?? targetsFor(cfg.assistant);
   if (result.pendingOauth.length) {
     lines.push("", "Still to authorize — writing .mcp.json does not complete an OAuth login");
-    lines.push("  Open Claude Code in the project and run /mcp once, then authorize:");
+    if (t.claude) lines.push("  Claude Code: open the project and run /mcp once, then authorize.");
+    if (t.copilot) lines.push("  GitHub Copilot: start each server when VS Code or the Copilot CLI asks, then authorize.");
     for (const c of result.pendingOauth) lines.push(`    - ${c.displayName}`);
   }
 
@@ -199,24 +218,71 @@ function summarize(cfg, result) {
   ];
   if (cfg.mcp.catalog?.includes("github")) cred.push("GITHUB_PAT");
   if (cred.length) {
-    lines.push("", "Environment variables to export before you start Claude Code");
+    lines.push("", "Environment variables to export before you start your assistant");
     for (const v of [...new Set(cred)]) lines.push(`    ${v}`);
     lines.push("  .mcp.json references them by name, so no secret is committed.");
   }
 
-  lines.push("", "Register the plugin");
-  if (result.registration.shellSubcommandsWork) {
-    for (const c of result.registration.shell) lines.push(`    ${c}`);
-    lines.push("  Or, inside an interactive session:");
-  } else {
-    lines.push("  `claude plugin` subcommands are unavailable here. Inside an interactive session run:");
+  if (t.claude) {
+    lines.push("", "Claude Code — register the plugin");
+    if (result.registration.shellSubcommandsWork) {
+      for (const c of result.registration.shell) lines.push(`    ${c}`);
+      lines.push("  Or, inside an interactive session:");
+    } else {
+      lines.push("  `claude plugin` subcommands are unavailable here. Inside an interactive session run:");
+    }
+    for (const c of result.registration.slash) lines.push(`    ${c}`);
+    lines.push(`  For local development without a marketplace: ${result.registration.devLoad}`);
   }
-  for (const c of result.registration.slash) lines.push(`    ${c}`);
-  lines.push(`  For local development without a marketplace: ${result.registration.devLoad}`);
+
+  if (t.copilot) {
+    lines.push("", "GitHub Copilot — nothing to register");
+    lines.push("  The phases are skills in .github/skills/sdd-speckit-*/, and the phase agents are in .github/agents/.");
+    lines.push("  Commit .github/ and .specify/sdd-speckit/ so the Copilot cloud agent sees them on the default branch.");
+    if (result.servers?.length) {
+      lines.push("  The Copilot cloud agent does not read .mcp.json. Add the same servers under the repository's");
+      lines.push("  Settings → Copilot → Coding agent → MCP configuration.");
+    }
+  }
 
   lines.push("", "Next step");
-  lines.push("    /sdd-speckit:speckit.constitution");
+  if (t.claude) lines.push("    Claude Code:     /sdd-speckit:speckit.constitution");
+  if (t.copilot) lines.push("    GitHub Copilot:  /sdd-speckit-constitution   (Copilot Chat in agent mode, or the Copilot CLI)");
   return lines.join("\n");
+}
+
+/* ---------------------------------------------------------- --emit=copilot */
+
+function emit(flags, targetDir) {
+  if (flags.emit !== "copilot") {
+    console.error(`--emit="${flags.emit}" is unknown. The only value is copilot.`);
+    return 1;
+  }
+  let files;
+  try {
+    files = renderCopilot(FRAMEWORK_ROOT);
+  } catch (err) {
+    console.error(`Copilot render failed: ${err.message}`);
+    return 1;
+  }
+
+  if (flags.check === true || flags.check === "true") {
+    const diffs = checkCopilot(resolve(targetDir), files, { strict: flags.strict === true || flags.strict === "true" });
+    if (!diffs.length) {
+      console.log(`Copilot files in ${resolve(targetDir)} match the sources (${files.length} files).`);
+      return 0;
+    }
+    console.error(`Copilot files in ${resolve(targetDir)} have drifted from the sources:`);
+    for (const d of diffs) console.error(`  ${d}`);
+    console.error(`\nRe-render: node installer/create-sdd-speckit-app/bin/cli.js --emit=copilot ${targetDir}`);
+    return 1;
+  }
+
+  const dryRun = flags["dry-run"] === true || flags["dry-run"] === "true";
+  const log = writeCopilot(resolve(targetDir), files, { dryRun });
+  console.log(`${dryRun ? "Would render" : "Rendered"} ${files.length} GitHub Copilot files into ${resolve(targetDir)}`);
+  for (const l of log) console.log(`  - ${l}`);
+  return 0;
 }
 
 /* ------------------------------------------------------------------- main */
@@ -228,6 +294,8 @@ async function main() {
   if (flags.version || flags.v) return console.log(VERSION), 0;
 
   const targetDir = positional[0] ?? ".";
+
+  if (flags.emit !== undefined) return emit(flags, targetDir);
   const forceInteractive = flags["force-interactive"] === true;
   const nonInteractive = !forceInteractive && (flags.yes === true || flags.yes === "true" || !process.stdin.isTTY);
   const dryRun = flags["dry-run"] === true || flags["dry-run"] === "true";
@@ -258,7 +326,7 @@ async function main() {
         message:
           `Scaffold into ${resolve(targetDir)}?\n` +
           `  telemetry=${cfg.telemetry.enabled ? cfg.telemetry.exporter : "off"}  stack=${cfg.stack}  ` +
-          `assistant=${cfg.assistant.primary}  mcp=${[...(cfg.mcp.catalog ?? []), ...(cfg.mcp.custom ?? []).map((c) => c.id)].join(",") || "none"}  editor=${cfg.editor}`,
+          `assistant=${targetList(cfg.assistant).join("+")}  mcp=${[...(cfg.mcp.catalog ?? []), ...(cfg.mcp.custom ?? []).map((c) => c.id)].join(",") || "none"}  editor=${cfg.editor}`,
         initialValue: true,
       });
       ui.close();

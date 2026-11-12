@@ -20,7 +20,7 @@ npx github:your-org/sdd-speckit-framework my-app
 |---|---|---|
 | 1 | Enable OpenTelemetry usage monitoring? | **off** |
 | 2 | Which tech stack? | `custom` |
-| 3 | Primary AI assistant? (plus optional secondaries) | `claude` |
+| 3 | Primary AI assistant? (plus optional secondaries, or **Both**) | `claude` |
 | 4 | Which MCP connectors? (plus a custom-connector loop) | none |
 | 5 | Preferred code editor? | `vscode` |
 
@@ -35,7 +35,7 @@ Every answer is also a flag, so CI needs no TTY.
 | `--otel-exporter=` | `console` \| `otlp` | `console` |
 | `--otel-endpoint=` | URL | — (required for `otlp`) |
 | `--stack=` | `web-fullstack-node` \| `python-fastapi` \| `dotnet-aspire` \| `custom` | `custom` |
-| `--assistant=` | `claude` \| `copilot` \| `cursor` \| `other` | `claude` |
+| `--assistant=` | `claude` \| `copilot` \| `both` \| `cursor` \| `other` | `claude` |
 | `--secondary-assistants=` | comma separated | — |
 | `--mcp=` | comma separated ids from `mcp/catalog.json` | none |
 | `--mcp-custom=` | `<name>:<transport>:<url-or-command>`, repeatable | — |
@@ -45,6 +45,20 @@ Every answer is also a flag, so CI needs no TTY.
 | `--no-speckit` | — | off |
 | `--force-interactive` | — | off (asks the five questions without a TTY) |
 | `--no-node` | bash only — do not delegate | off |
+| `--emit=copilot [dir]` | render only the Copilot files, no questions | — |
+| `--emit=copilot --check [--strict] [dir]` | exit 1 if `dir` differs from a fresh render | — |
+
+### Which assistant gets files
+
+| `--assistant` (+ secondaries) | Claude Code files | GitHub Copilot files |
+|---|---|---|
+| `claude` | yes | no |
+| `copilot` | no | yes |
+| `both` (= `claude` + secondary `copilot`) | yes | yes |
+| `cursor` or `other`, no Claude/Copilot secondary | yes (as before 0.2.0) | no |
+
+`specify init` runs once for the primary assistant's integration, and once more for Claude Code
+or Copilot when either is a secondary.
 
 ```bash
 npx create-sdd-speckit-app my-app --yes \
@@ -66,17 +80,22 @@ you must supply it, or the run **fails before writing anything**:
 |---|---|
 | `.specify/` | From `specify init --integration <key>`, or the vendored templates |
 | `.specify/templates/overrides/` | The chosen preset's `plan-template.md` and `tasks-template.md` |
-| `.specify/sdd-speckit.json` | All five answers. Canonical, safe to commit. |
+| `.specify/sdd-speckit.json` | All five answers plus `assistant.targets` (`configVersion: 2`). Canonical, safe to commit. |
+| `.mcp.json` | Chosen catalog picks plus every custom entry, under `mcpServers`. Read by both assistants. |
+| `.vscode/` or `.idea/` | Per `editors/editor-map.json`, with the extension or plugin of every chosen assistant |
+| **Claude Code target** | |
 | `.claude/sdd-speckit/` | `commands/ agents/ skills/ hooks/ templates/` |
 | `.claude/settings.json` | **`env` only** — the OTel variables. Merged, never clobbered. |
-| `.mcp.json` | Chosen catalog picks plus every custom entry, under `mcpServers` |
-| `.vscode/` or `.idea/` | Per `editors/editor-map.json` |
 | `scripts/otel-collector/` | Only for `--telemetry=on --otel-exporter=otlp` |
+| **GitHub Copilot target** | |
+| `.github/skills/`, `.github/agents/`, `.github/hooks/sdd-speckit.json` | Rendered from the Claude Code sources. See [COPILOT.md](COPILOT.md). |
+| `.github/copilot-instructions.md` | A marked block, merged. Your own text outside the markers is kept. |
+| `.specify/sdd-speckit/` | Templates, presets, MCP catalog, hook scripts — what `${CLAUDE_PLUGIN_ROOT}` is in Claude Code |
 
 The five answers live in `.specify/sdd-speckit.json`, not in `.claude/settings.json`, because
 `settings.json` has a defined schema and this framework's config is not part of it.
 
-## Registering the plugin — the shell-versus-slash caveat
+## Registering the plugin — the shell-versus-slash caveat (Claude Code)
 
 Copying files works, but **registering the plugin is better**: `/plugin update` then upgrades it.
 
@@ -99,7 +118,12 @@ claude --plugin-dir /path/to/sdd-speckit-framework
 
 For containers and CI, `CLAUDE_CODE_PLUGIN_SEED_DIR` provisions plugins at image build time.
 
+GitHub Copilot has nothing to register. Commit `.github/` and `.specify/sdd-speckit/`.
+
 ## Telemetry — and how it differs from `DISABLE_TELEMETRY`
+
+Telemetry covers **Claude Code only**. With GitHub Copilot as the only target, the answer is
+recorded and nothing is written.
 
 **Two unrelated controls. Do not conflate them.**
 
@@ -119,11 +143,11 @@ a considered opt-out of something that was on.
 
 ## Reconfiguring later
 
-`/sdd-speckit:speckit.setup` asks the same five questions in-session, shows the current value for
-each, and offers keep-or-change. Narrow it with an argument:
-`/sdd-speckit:speckit.setup mcp`.
+`/sdd-speckit:speckit.setup` (Copilot: `/sdd-speckit-setup`) asks the same five questions
+in-session, shows the current value for each, and offers keep-or-change. Narrow it with an
+argument: `/sdd-speckit:speckit.setup mcp`.
 
 ## Related
 
 [MCP connectors](MCP_CONNECTORS.md) · [Onboarding](../ONBOARDING.md) ·
-[Model routing](MODEL_ROUTING.md) · [Architecture](ARCHITECTURE.md)
+[Model routing](MODEL_ROUTING.md) · [Architecture](ARCHITECTURE.md) · [GitHub Copilot](COPILOT.md)

@@ -1,10 +1,14 @@
 {
   "name": "create-sdd-speckit-app",
-  "version": "0.1.0",
-  "description": "Interactive installer for the SDD Speckit Framework: scaffolds a spec-driven project wired to Claude Code, MCP connectors and your editor.",
+  "version": "0.2.0",
+  "description": "Interactive installer for the SDD Speckit Framework: scaffolds a spec-driven project wired to Claude Code and/or GitHub Copilot, MCP connectors and your editor.",
   "type": "module",
   "bin": {
     "create-sdd-speckit-app": "bin/cli.js"
+  },
+  "scripts": {
+    "render:copilot": "node bin/cli.js --emit=copilot ../../adapters/copilot/dist",
+    "check:copilot": "node bin/cli.js --emit=copilot --check --strict ../../adapters/copilot/dist"
   },
   "files": [
     "bin",
@@ -20,7 +24,8 @@
     "spec-driven-development",
     "speckit",
     "claude-code",
-    "scaffold"
+    "scaffold",
+    "github-copilot"
   ],
   "license": "MIT"
 }

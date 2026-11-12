@@ -4,6 +4,60 @@ All notable changes to `sdd-speckit-framework`. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning is
 [semantic](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] — 2026-11-13
+
+GitHub Copilot support. You can pick Claude Code, GitHub Copilot or both. Each phase is still
+written once.
+
+### Added
+
+- **GitHub Copilot adapter**: `installer/create-sdd-speckit-app/src/copilot.js`, driven by
+  `adapters/copilot/adapter.json` (tier, tool and routing maps). It renders, from the Claude Code
+  sources:
+  - 10 phase skills (`.github/skills/sdd-speckit-*`, user-invoked only).
+  - 7 custom agents, plus `qa-analyst-readonly` (`.github/agents/`).
+  - The shared skills (`speckit-workflow`, `raci-lookup`, `asd-ste100`).
+  - `.github/hooks/sdd-speckit.json` (constitution guard and artifact changelog).
+  - A merged, marked block in `.github/copilot-instructions.md`.
+  - `.specify/sdd-speckit/` (templates, presets, catalogs, hook scripts).
+- **`--assistant=both`** in both installers and in `speckit.setup`. It records
+  `assistant.targets`, and `.specify/sdd-speckit.json` moves to `configVersion: 2`.
+- **`--emit=copilot [--check [--strict]] [dir]`**: adds Copilot support to an existing repo, or
+  checks a render for drift.
+- **`adapters/copilot/dist/`**: the committed render, for the bash installer and for copying by
+  hand. Two npm scripts keep it in step: `npm run render:copilot` and `npm run check:copilot`.
+- **`docs/COPILOT.md`**: the primitive mapping, model tiers, read-only enforcement, and the limits.
+- Source markers `<!-- claude-only:start/end -->` and `<!-- copilot-only … -->` for passages that
+  are true for only one assistant.
+
+### Changed
+
+- **Hook scripts** read both the Claude Code (`tool_name`/`tool_input`) and the Copilot
+  (`toolName`/`toolArgs`) payloads through `scripts/hooks/_payload.py`. They also handle
+  `apply_patch` targets and filter by tool name themselves. The guard also prints a Copilot
+  `permissionDecision: deny`.
+- **Editor scaffolding** recommends the extension or plugin of every chosen assistant. The source
+  is `editor-map.json` → `assistants`: `github.copilot`, `github.copilot-chat` and
+  `com.github.copilot` for Copilot. The JetBrains `externalDependencies.xml` is now rendered from a
+  template.
+- **Claude Code-only parts.** `.claude/` files, telemetry env vars and the OTel collector are
+  written only for a Claude Code target.
+- **`specify init`** runs once per integration when Claude Code and Copilot are both targets.
+- **`speckit.plan`** reads the stack preset from `.specify/sdd-speckit.json`, not
+  `.claude/settings.json`.
+
+### Verified at build time (2026-11-13)
+
+- **Copilot hooks.** Copilot reads `.github/hooks/*.json` with `version: 1`, camelCase
+  `preToolUse`/`postToolUse`, and `toolName`/`toolArgs` on stdin. Exit code 2 denies.
+- **Copilot MCP.** Copilot reads the workspace-root `.mcp.json` (`mcpServers`, `${VAR}`), so no
+  second MCP file is written. `.vscode/mcp.json` is the deprecated Local-harness format. The
+  Copilot cloud agent's MCP is configured in repository settings.
+- **Prompt files.** `.github/prompts/*.prompt.md` run only in VS Code's Local harness, which is
+  deprecated and removed in February 2027, so the phases are skills instead.
+- **Speckit.** `specify init --integration copilot` (spec-kit `2ee2b1e`) writes `.github/skills/speckit-*`.
+  Those names do not collide with `sdd-speckit-*`.
+
 ## [0.1.0] — 2026-09-10
 
 First release.

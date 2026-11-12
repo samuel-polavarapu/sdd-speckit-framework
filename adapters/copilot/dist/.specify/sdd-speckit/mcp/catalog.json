@@ -1,0 +1,129 @@
+{
+  "version": 1,
+  "verifiedOn": "2026-09-10",
+  "note": "Endpoints drift. Re-verify against each vendor's own documentation before trusting this file. Writing a .mcp.json entry does not finish setup for an OAuth connector: run /mcp once inside Claude Code to authorize it.",
+  "connectors": [
+    {
+      "id": "github",
+      "displayName": "GitHub",
+      "description": "Repositories, issues, pull requests and Actions runs.",
+      "server": "github/github-mcp-server",
+      "transport": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "auth": {
+        "kind": "oauth-or-token",
+        "needsUpfrontCredential": false,
+        "credentialEnvVar": "GITHUB_PAT"
+      },
+      "requiresUserInput": false,
+      "addExample": "claude mcp add --scope project --transport http github https://api.githubcopilot.com/mcp/ --header \"Authorization: Bearer $GITHUB_PAT\"",
+      "notes": "Anthropic also ships an official plugin. Prefer `claude plugin install github@claude-plugins-official` when you install through the marketplace. A GitHub Enterprise Server tenant uses its own host, not this URL.",
+      "command": null,
+      "args": []
+    },
+    {
+      "id": "atlassian",
+      "displayName": "Jira and Confluence (Atlassian)",
+      "description": "Jira issues, Confluence pages, Jira Service Management, Bitbucket and Compass.",
+      "server": "atlassian/atlassian-mcp-server",
+      "transport": "http",
+      "url": "https://mcp.atlassian.com/v2/mcp",
+      "auth": {
+        "kind": "oauth",
+        "needsUpfrontCredential": false,
+        "credentialEnvVar": null
+      },
+      "requiresUserInput": false,
+      "addExample": "claude mcp add --scope project --transport http atlassian https://mcp.atlassian.com/v2/mcp",
+      "notes": "The HTTP+SSE endpoint /v1/sse was deprecated with a 30 June 2026 sunset. Use /v2/mcp. Atlassian Cloud only. Complete the OAuth login with /mcp.",
+      "command": null,
+      "args": []
+    },
+    {
+      "id": "figma",
+      "displayName": "Figma",
+      "description": "Read a design's structure, variables and code context from a Figma file.",
+      "server": "Figma remote MCP server",
+      "transport": "http",
+      "url": "https://mcp.figma.com/mcp",
+      "auth": {
+        "kind": "oauth",
+        "needsUpfrontCredential": false,
+        "credentialEnvVar": null
+      },
+      "requiresUserInput": false,
+      "addExample": "claude mcp add --scope project --transport http figma https://mcp.figma.com/mcp",
+      "notes": "Anthropic ships an official plugin: prefer `claude plugin install figma@claude-plugins-official`. A desktop alternative runs from the Figma app with Dev Mode enabled, on a local port; take that URL from the app rather than assuming one.",
+      "command": null,
+      "args": []
+    },
+    {
+      "id": "playwright",
+      "displayName": "Playwright",
+      "description": "Drive a real browser to test a running application.",
+      "server": "microsoft/playwright-mcp",
+      "transport": "stdio",
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest"
+      ],
+      "auth": {
+        "kind": "none",
+        "needsUpfrontCredential": false,
+        "credentialEnvVar": null
+      },
+      "requiresUserInput": false,
+      "addExample": "claude mcp add --scope project playwright npx @playwright/mcp@latest",
+      "notes": "Runs locally and needs no credential. It downloads a browser on first use, so the first call is slow.",
+      "url": null
+    },
+    {
+      "id": "lucid",
+      "displayName": "Lucid",
+      "description": "Search, read and create Lucidchart and Lucidspark documents.",
+      "server": "Lucid remote MCP server",
+      "transport": "http",
+      "url": "https://mcp.lucid.app/mcp",
+      "auth": {
+        "kind": "oauth",
+        "needsUpfrontCredential": false,
+        "credentialEnvVar": null
+      },
+      "requiresUserInput": false,
+      "addExample": "claude mcp add --scope project --transport http lucid https://mcp.lucid.app/mcp",
+      "notes": "A Lucid account admin must enable MCP access in the Admin Panel before any user can connect. Without that, the OAuth login fails and the reason is not obvious.",
+      "command": null,
+      "args": []
+    },
+    {
+      "id": "rally",
+      "displayName": "Rally (Broadcom Rally / CA Agile Central)",
+      "description": "Rally stories, defects, iterations and test cases.",
+      "server": "Broadcom Rally MCP (AI Coding Assistance Integration)",
+      "transport": "http",
+      "url": null,
+      "auth": {
+        "kind": "api-key-or-oauth",
+        "needsUpfrontCredential": true,
+        "credentialEnvVar": "RALLY_API_KEY"
+      },
+      "requiresUserInput": true,
+      "userInput": [
+        {
+          "field": "url",
+          "prompt": "Your organization's Rally MCP URL",
+          "example": "https://<your-rally-mcp-host>/mcp"
+        },
+        {
+          "field": "credentialEnvVar",
+          "prompt": "Env var holding the Rally credential",
+          "default": "RALLY_API_KEY"
+        }
+      ],
+      "addExample": "claude mcp add --scope project --transport http rally <YOUR_RALLY_MCP_URL> --header \"Authorization: Bearer $RALLY_API_KEY\"",
+      "notes": "Rally MCP is tenant-hosted. There is no single public endpoint, so this catalog carries no default URL. A Rally admin provisions the host and the credential. Ask your platform team for both.",
+      "command": null,
+      "args": []
+    }
+  ]
+}

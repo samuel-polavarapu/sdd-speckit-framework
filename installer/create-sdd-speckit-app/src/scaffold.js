@@ -7,7 +7,8 @@ import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { findPreset, presetOverrides, presetVscodeExtensions } from "./presets-map.js";
 import { catalogFragment, customFragment, pendingOauth } from "./mcp-map.js";
-import { CONFIG_VERSION, speckitIntegrationFor } from "./config-schema.js";
+import { CONFIG_VERSION, speckitIntegrationFor, targetsFor, targetList } from "./config-schema.js";
+import { renderCopilot, writeCopilot } from "./copilot.js";
 
 const PLUGIN_DIRS = ["commands", "agents", "skills", "hooks", "templates"];
 
@@ -36,37 +37,48 @@ function writeJson(p, data, log, label) {
 
 /* ------------------------------------------------------------ 1. .specify/ */
 
+/** Speckit integrations to install: the primary's, plus Claude Code's or Copilot's when either is a target. */
+export function speckitIntegrations(cfg) {
+  const ids = [cfg.assistant.primary, ...(cfg.assistant.secondary ?? []).filter((s) => s === "claude" || s === "copilot")];
+  return [...new Set(ids.map(speckitIntegrationFor))];
+}
+
 export function initSpeckit(target, cfg, { dryRun, skipSpeckit }) {
-  const integration = speckitIntegrationFor(cfg.assistant.primary);
+  const integrations = speckitIntegrations(cfg);
+  const integration = integrations[0];
   const log = [];
+  const base = { integration, integrations };
 
   if (skipSpeckit) {
     log.push("skipped Speckit init (--no-speckit)");
-    return { log, delegated: false, integration };
+    return { log, delegated: false, ...base };
   }
 
   const uvx = have("uvx");
   if (!uvx) {
     log.push("uvx not found — vendored templates used instead of `specify init` (see the summary)");
-    return { log, delegated: false, integration, fallbackReason: "uvx not installed" };
+    return { log, delegated: false, ...base, fallbackReason: "uvx not installed" };
   }
 
-  const args = [
-    "--from", "git+https://github.com/github/spec-kit.git", "specify", "init",
-    "--here", "--force", "--non-interactive", "--integration", integration,
-  ];
-  if (dryRun) {
-    log.push(`would run: uvx ${args.join(" ")}`);
-    return { log, delegated: true, integration, dryRun: true };
+  // One run per integration. `--here --force` merges, so a second run adds the second
+  // assistant's Speckit commands beside the first's.
+  for (const integ of integrations) {
+    const args = [
+      "--from", "git+https://github.com/github/spec-kit.git", "specify", "init",
+      "--here", "--force", "--non-interactive", "--integration", integ,
+    ];
+    if (dryRun) {
+      log.push(`would run: uvx ${args.join(" ")}`);
+      continue;
+    }
+    const r = spawnSync("uvx", args, { cwd: target, stdio: "inherit", timeout: 300000 });
+    if (r.status !== 0) {
+      log.push(`\`specify init --integration ${integ}\` exited ${r.status ?? "on signal"} — vendored templates used instead`);
+      return { log, delegated: false, ...base, fallbackReason: `specify init --integration ${integ} failed (${r.status})` };
+    }
+    log.push(`ran \`specify init --integration ${integ}\``);
   }
-
-  const r = spawnSync("uvx", args, { cwd: target, stdio: "inherit", timeout: 300000 });
-  if (r.status === 0) {
-    log.push(`ran \`specify init --integration ${integration}\``);
-    return { log, delegated: true, integration };
-  }
-  log.push(`\`specify init\` exited ${r.status ?? "on signal"} — vendored templates used instead`);
-  return { log, delegated: false, integration, fallbackReason: `specify init failed (${r.status})` };
+  return { log, delegated: true, ...base, ...(dryRun ? { dryRun: true } : {}) };
 }
 
 /* ---------------------------------------------- 2. plugin files + overrides */
@@ -74,7 +86,7 @@ export function initSpeckit(target, cfg, { dryRun, skipSpeckit }) {
 export function copyFrameworkFiles(target, frameworkRoot, cfg, { dryRun }) {
   const log = [];
 
-  for (const d of PLUGIN_DIRS) {
+  for (const d of targetsFor(cfg.assistant).claude ? PLUGIN_DIRS : []) {
     const from = join(frameworkRoot, d);
     if (!existsSync(from)) continue;
     const to = join(target, ".claude", "sdd-speckit", d);
@@ -147,6 +159,14 @@ export function writeMcpJson(target, frameworkRoot, cfg, { dryRun }) {
 
 export function writeSettings(target, cfg, { dryRun }) {
   const log = [];
+  if (!targetsFor(cfg.assistant).claude) {
+    log.push(
+      cfg.telemetry.enabled
+        ? "telemetry not written — it covers Claude Code only, and Claude Code is not a target"
+        : "no Claude Code target — .claude/settings.json not written"
+    );
+    return log;
+  }
   const p = join(target, ".claude", "settings.json");
   const settings = readJson(p, {});
   const env = { ...(settings.env ?? {}) };
@@ -183,7 +203,11 @@ export function writeConfigRecord(target, cfg, extra, { dryRun }) {
     generatedBy: "create-sdd-speckit-app",
     telemetry: cfg.telemetry,
     stack: cfg.stack,
-    assistant: { ...cfg.assistant, speckitIntegration: speckitIntegrationFor(cfg.assistant.primary) },
+    assistant: {
+      ...cfg.assistant,
+      targets: targetList(cfg.assistant),
+      speckitIntegration: speckitIntegrationFor(cfg.assistant.primary),
+    },
     mcp: { catalog: cfg.mcp.catalog ?? [], custom: cfg.mcp.custom ?? [] },
     editor: cfg.editor,
     ...extra,
@@ -211,7 +235,11 @@ export function writeEditorFiles(target, frameworkRoot, cfg, { dryRun }) {
     return log;
   }
 
-  const presetExtras = entry.mergesPresetExtensions ? presetVscodeExtensions(findPreset(frameworkRoot, cfg.stack)) : [];
+  const assistants = targetList(cfg.assistant).map((id) => map.assistants?.[id]).filter(Boolean);
+  const presetExtras = [
+    ...(entry.mergesAssistantExtensions ? assistants.flatMap((a) => a.vscodeExtensions ?? []) : []),
+    ...(entry.mergesPresetExtensions ? presetVscodeExtensions(findPreset(frameworkRoot, cfg.stack)) : []),
+  ];
 
   for (const c of entry.copy) {
     const from = join(frameworkRoot, c.from);
@@ -231,6 +259,16 @@ export function writeEditorFiles(target, frameworkRoot, cfg, { dryRun }) {
       };
       if (dryRun) log.push(`would write ${c.to} (${merged.recommendations.length} recommendations)`);
       else writeJson(to, merged, log, `wrote ${c.to} (${merged.recommendations.length} recommendations)`);
+    } else if (c.mergeStrategy === "render-jetbrains-plugins") {
+      const ids = assistants.map((a) => a.jetbrainsPlugin).filter(Boolean);
+      const xml = renderJetbrainsPlugins(readFileSync(from, "utf8"), ids);
+      if (dryRun) log.push(`would write ${c.to} (plugins: ${ids.join(", ")})`);
+      else {
+        mkdirSync(dirname(to), { recursive: true });
+        writeFileSync(to, xml);
+        log.push(`wrote ${c.to} (plugins: ${ids.join(", ")})`);
+      }
+      for (const a of assistants) if (a.jetbrainsPlugin) log.push(`JetBrains plugin required: ${a.jetbrainsPlugin} (${a.label})`);
     } else if (c.mergeStrategy === "merge-shallow") {
       const merged = { ...readJson(to, {}), ...JSON.parse(readFileSync(from, "utf8")) };
       if (dryRun) log.push(`would write ${c.to}`);
@@ -244,15 +282,29 @@ export function writeEditorFiles(target, frameworkRoot, cfg, { dryRun }) {
       }
     }
   }
-  if (entry.pluginId) log.push(`JetBrains plugin required: ${entry.pluginId}`);
   return log;
 }
 
-/* -------------------------------------------------------------- 6. telemetry */
+export const JETBRAINS_MARKER = "<!-- sdd-speckit:plugins -->";
+
+/** Replaces the plugins marker in the template with one <plugin> line per id. */
+export function renderJetbrainsPlugins(template, ids) {
+  if (!template.includes(JETBRAINS_MARKER)) throw new Error("externalDependencies.xml template has no plugins marker");
+  return template.replace(JETBRAINS_MARKER, ids.map((id) => `<plugin id="${id}" />`).join("\n  "));
+}
+
+/* ---------------------------------------------------------- 6. GitHub Copilot */
+
+export function writeCopilotFiles(target, frameworkRoot, cfg, { dryRun }) {
+  if (!targetsFor(cfg.assistant).copilot) return [];
+  return writeCopilot(target, renderCopilot(frameworkRoot), { dryRun });
+}
+
+/* -------------------------------------------------------------- 7. telemetry */
 
 export function writeCollector(target, frameworkRoot, cfg, { dryRun }) {
   const log = [];
-  if (!cfg.telemetry.enabled || cfg.telemetry.exporter !== "otlp") return log;
+  if (!cfg.telemetry.enabled || cfg.telemetry.exporter !== "otlp" || !targetsFor(cfg.assistant).claude) return log;
   const from = join(frameworkRoot, "scripts", "otel-collector");
   if (!existsSync(from)) return log;
   const to = join(target, "scripts", "otel-collector");
@@ -276,6 +328,7 @@ export function scaffold(targetDir, frameworkRoot, cfg, opts = {}) {
   const mcp = writeMcpJson(target, frameworkRoot, cfg, { dryRun });
   const settings = writeSettings(target, cfg, { dryRun });
   const editors = writeEditorFiles(target, frameworkRoot, cfg, { dryRun });
+  const copilot = writeCopilotFiles(target, frameworkRoot, cfg, { dryRun });
   const collector = writeCollector(target, frameworkRoot, cfg, { dryRun });
   const record = writeConfigRecord(
     target, cfg,
@@ -287,9 +340,10 @@ export function scaffold(targetDir, frameworkRoot, cfg, opts = {}) {
     target,
     dryRun,
     speckit,
+    targets: targetsFor(cfg.assistant),
     registration: pluginRegistration(frameworkRoot),
     pendingOauth: mcp.pending,
     servers: Object.keys(mcp.servers),
-    log: [...speckit.log, ...files, ...mcp.log, ...settings, ...editors, ...collector, ...record],
+    log: [...speckit.log, ...files, ...mcp.log, ...settings, ...editors, ...copilot, ...collector, ...record],
   };
 }

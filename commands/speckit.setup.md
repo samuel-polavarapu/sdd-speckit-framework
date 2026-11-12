@@ -15,7 +15,7 @@ same five questions in the same order as `create-sdd-speckit-app`, and writes th
 | File | What you learn |
 |---|---|
 | `.specify/sdd-speckit.json` | The current five answers. Absent means first-time setup. |
-| `.claude/settings.json` | Whether telemetry env vars are already set. |
+| `.claude/settings.json` | Whether telemetry env vars are already set (Claude Code only). |
 | `.mcp.json` | Which connectors are already wired. |
 | `.vscode/extensions.json`, `.idea/externalDependencies.xml` | Which editor is already wired. |
 | `${CLAUDE_PLUGIN_ROOT}/mcp/catalog.json` | The connector catalog to offer. |
@@ -43,8 +43,13 @@ one-line description.
 ### 3. Primary AI assistant
 
 Single-select: **Claude Code** (default, Speckit key `claude`) · **GitHub Copilot** (`copilot`) ·
-**Cursor** (`cursor-agent`) · **other** (`generic`). Then offer an optional multi-select of
-secondary assistants from the same list.
+**Both — Claude Code and GitHub Copilot** · **Cursor** (`cursor-agent`) · **other** (`generic`).
+Unless the answer was *Both*, offer an optional multi-select of secondary assistants from the same
+list. *Both* is recorded as primary `claude`, secondary `["copilot"]`.
+
+The assistants chosen decide the **targets**: Claude Code files are written when `claude` is
+chosen (or when neither `claude` nor `copilot` is), and GitHub Copilot files when `copilot` is.
+Record them as `assistant.targets`.
 
 ### 4. MCP connectors
 
@@ -62,23 +67,26 @@ Single-select: **VS Code** (default) · **JetBrains** (IntelliJ IDEA, PyCharm, W
 
 ## Then write
 
-| Target | Content |
-|---|---|
-| `.specify/sdd-speckit.json` | All five answers. The canonical record, safe to commit. |
-| `.claude/settings.json` | `env` only: `CLAUDE_CODE_ENABLE_TELEMETRY`, `OTEL_METRICS_EXPORTER`, `OTEL_EXPORTER_OTLP_ENDPOINT`. Merge; do not clobber other keys. |
-| `.mcp.json` | Merge the chosen `mcp/snippets/*.json` plus every custom entry under `mcpServers`. |
-| `.vscode/` or `.idea/` | Copy per `editors/editor-map.json`. |
-| `.specify/templates/overrides/` | The chosen preset's `plan-template.md` and `tasks-template.md`. |
+| Target | When | Content |
+|---|---|---|
+| `.specify/sdd-speckit.json` | always | All five answers, with `configVersion: 2` and `assistant.targets`. The canonical record, safe to commit. |
+| `.mcp.json` | always | Merge the chosen `mcp/snippets/*.json` plus every custom entry under `mcpServers`. Claude Code and GitHub Copilot both read this file. |
+| `.specify/templates/overrides/` | always | The chosen preset's `plan-template.md` and `tasks-template.md`. |
+| `.claude/settings.json` | Claude Code target | `env` only: `CLAUDE_CODE_ENABLE_TELEMETRY`, `OTEL_METRICS_EXPORTER`, `OTEL_EXPORTER_OTLP_ENDPOINT`. Merge; do not clobber other keys. |
+| `.github/` + `.specify/sdd-speckit/` | GitHub Copilot target | Run `npx create-sdd-speckit-app . --emit=copilot` (needs Node 18+). It renders the Copilot skills, custom agents, hooks and instructions from this framework's sources. Do not hand-write them. |
+| `.vscode/` or `.idea/` | always | Copy per `editors/editor-map.json`, recommending the extension or plugin of **every** chosen target. |
 
 On telemetry **off**, remove those three env keys rather than setting them to `0`, and leave the
-rest of `settings.json` untouched.
+rest of `settings.json` untouched. Telemetry covers Claude Code only. With GitHub Copilot as the
+only target, say so and skip the question's write.
 
 ## Report
 
 - A table of every choice: previous value, new value.
 - Every file you wrote.
-- **Which connectors still need a one-time `/mcp` authorization in this session.** Writing
-  `.mcp.json` does not complete an OAuth login.
+- **Which connectors still need a one-time authorization.** Writing `.mcp.json` does not
+  complete an OAuth login. In Claude Code, run `/mcp`. In GitHub Copilot, start the server when
+  VS Code or the Copilot CLI asks.
 - Any credential the user must still supply, and the env var name it belongs in.
 
 Then say: next run `/sdd-speckit:speckit.constitution`.

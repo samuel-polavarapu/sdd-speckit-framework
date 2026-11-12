@@ -11,7 +11,7 @@ import { createInterface } from "node:readline";
 import { stdin, stdout } from "node:process";
 import { presetChoices } from "./presets-map.js";
 import { catalogChoices, connectorsNeedingInput, findConnector } from "./mcp-map.js";
-import { ASSISTANTS, EXPORTERS, validateCustomMcp } from "./config-schema.js";
+import { ASSISTANTS, BOTH, EXPORTERS, normalizeAssistant, validateCustomMcp } from "./config-schema.js";
 
 let clack = null;
 try {
@@ -195,20 +195,30 @@ export async function askStack(ui, frameworkRoot, current) {
 }
 
 export async function askAssistant(ui, current) {
+  const options = ASSISTANTS.map((a) => ({
+    value: a.id,
+    label: a.label + (a.default ? " (default)" : ""),
+    hint: `Speckit integration: ${a.speckitIntegration}`,
+  }));
+  // "Both" sits right after the two assistants this framework renders files for.
+  options.splice(2, 0, {
+    value: BOTH,
+    label: "Both — Claude Code and GitHub Copilot",
+    hint: "Writes the Claude Code plugin files and the .github/ Copilot files",
+  });
+
   const primary = await ui.select({
     message: "Primary AI coding assistant?",
     initialValue: current?.primary ?? "claude",
-    options: ASSISTANTS.map((a) => ({
-      value: a.id,
-      label: a.label + (a.default ? " (default)" : ""),
-      hint: `Speckit integration: ${a.speckitIntegration}`,
-    })),
+    options,
   });
+  if (primary === BOTH) return normalizeAssistant({ primary });
+
   const secondary = await ui.multiselect({
     message: "Any secondary assistants? (optional)",
     options: ASSISTANTS.filter((a) => a.id !== primary).map((a) => ({ value: a.id, label: a.label })),
   });
-  return { primary, secondary };
+  return normalizeAssistant({ primary, secondary });
 }
 
 export async function askMcp(ui, frameworkRoot, current) {
@@ -304,9 +314,9 @@ export async function askEditor(ui, current) {
     message: "Preferred code editor?",
     initialValue: current ?? "vscode",
     options: [
-      { value: "vscode", label: "VS Code (default)", hint: "Recommends anthropic.claude-code via .vscode/extensions.json" },
-      { value: "cursor", label: "Cursor", hint: "VS Code fork; same extension id" },
-      { value: "jetbrains", label: "JetBrains (IntelliJ IDEA, PyCharm, WebStorm, Rider)", hint: "Requires the plugin via .idea/externalDependencies.xml" },
+      { value: "vscode", label: "VS Code (default)", hint: "Recommends each chosen assistant's extension via .vscode/extensions.json" },
+      { value: "cursor", label: "Cursor", hint: "VS Code fork; same extension ids" },
+      { value: "jetbrains", label: "JetBrains (IntelliJ IDEA, PyCharm, WebStorm, Rider)", hint: "Requires each chosen assistant's plugin via .idea/externalDependencies.xml" },
       { value: "none", label: "Other / none", hint: "Writes nothing. ONBOARDING.md keeps the pointers." },
     ],
   });

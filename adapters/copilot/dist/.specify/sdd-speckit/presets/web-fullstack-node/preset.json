@@ -1,0 +1,21 @@
+{
+  "id": "web-fullstack-node",
+  "label": "Web full-stack (Node + TypeScript)",
+  "description": "TypeScript end to end: React front end, Node API, Postgres, Vitest and Playwright.",
+  "overrides": ["plan-template.md", "tasks-template.md"],
+  "speckit": {
+    "presetHint": "Run `specify preset search` for a published preset that matches this stack before relying on these local overrides."
+  },
+  "defaults": {
+    "language": "TypeScript 5.6",
+    "runtime": "Node 22 LTS",
+    "frontend": "React 19 + Vite",
+    "backend": "Fastify",
+    "storage": "PostgreSQL 17 + Prisma",
+    "unitTest": "Vitest",
+    "e2eTest": "Playwright",
+    "lint": "ESLint + Prettier",
+    "packageManager": "pnpm"
+  },
+  "recommendedMcp": ["github", "playwright", "figma"]
+}

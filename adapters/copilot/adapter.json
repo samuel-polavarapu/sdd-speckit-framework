@@ -1,0 +1,51 @@
+{
+  "$comment": "Drives installer/create-sdd-speckit-app/src/copilot.js, which renders the GitHub Copilot files from the Claude Code sources (commands/, agents/, skills/). Edit the sources, not the rendered output. Formats verified against code.visualstudio.com and docs.github.com on 2026-11-13; see docs/COPILOT.md.",
+  "verifiedOn": "2026-11-13",
+  "commandSkillPrefix": "sdd-speckit-",
+  "supportDir": ".specify/sdd-speckit",
+  "supportCopy": [
+    "templates",
+    "mcp",
+    "presets",
+    "editors",
+    "scripts/hooks/_payload.py",
+    "scripts/hooks/guard-constitution.sh",
+    "scripts/hooks/log-artifact-change.sh",
+    "docs/RACI.md",
+    "docs/MODEL_ROUTING.md"
+  ],
+  "excludeSkills": ["telemetry-report"],
+  "models": {
+    "$comment": "Claude Code tier -> Copilot model name. A tier set to null leaves `model:` out, so Copilot uses whichever model the user picked. Copilot treats the value as a preference and falls back when the model is not enabled for the account.",
+    "opus": "Claude Opus 5.5 (copilot)",
+    "sonnet": "Claude Sonnet 5.5 (copilot)",
+    "haiku": "Claude Haiku 5.5 (copilot)"
+  },
+  "tools": {
+    "$comment": "Claude Code tool -> Copilot tool-set alias. A tool mapped to null is dropped.",
+    "Read": "read",
+    "Grep": "search",
+    "Glob": "search",
+    "Write": "edit",
+    "Edit": "edit",
+    "NotebookEdit": "edit",
+    "Bash": "execute",
+    "WebFetch": "web",
+    "WebSearch": "web",
+    "Task": "agent",
+    "TodoWrite": "todo"
+  },
+  "routing": {
+    "$comment": "Command -> custom agents it delegates to, mirrored from docs/ARCHITECTURE.md. A command with disallowed-tools gets '<agent>-readonly' variants that lack those tools.",
+    "speckit.constitution": { "agents": ["solution-architect"], "writes": "`.specify/memory/constitution.md`" },
+    "speckit.specify": { "agents": ["spec-author"], "writes": "`spec.md`, `checklists/requirements.md`" },
+    "speckit.clarify": { "agents": ["spec-author", "research-scout"], "writes": "resolved markers in `spec.md`" },
+    "speckit.plan": { "agents": ["solution-architect", "research-scout"], "writes": "`plan.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md`" },
+    "speckit.checklist": { "agents": ["qa-analyst"], "writes": "`checklists/<kind>.md`" },
+    "speckit.tasks": { "agents": ["task-planner"], "writes": "`tasks.md`" },
+    "speckit.analyze": { "agents": ["qa-analyst"], "writes": "**nothing: a report**" },
+    "speckit.implement": { "agents": ["implementer", "code-reviewer"], "writes": "source code" },
+    "speckit.converge": { "agents": ["qa-analyst", "code-reviewer"], "writes": "appended gap tasks" },
+    "speckit.setup": { "agents": [], "writes": "project config" }
+  }
+}

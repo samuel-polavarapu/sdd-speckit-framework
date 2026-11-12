@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Writes .mcp.json, .claude/settings.json, .specify/sdd-speckit.json and the editor files for
-install.sh. It exists so the bash path shares the framework's own JSON metadata instead of
+Writes .mcp.json, .claude/settings.json, .specify/sdd-speckit.json, the editor files and (for a
+GitHub Copilot target) the pre-rendered Copilot files for install.sh. It exists so the bash path shares the framework's own JSON metadata instead of
 rewriting JSON with sed.
 
 The Node installer (installer/create-sdd-speckit-app) is the reference implementation. Keep this
@@ -25,6 +25,14 @@ ENDPOINT = os.environ.get("OTEL_ENDPOINT", "")
 STACK = os.environ.get("STACK", "custom")
 ASSISTANT = os.environ.get("ASSISTANT", "claude")
 SECONDARY = [s for s in os.environ.get("SECONDARY", "").replace(" ", "").split(",") if s]
+if ASSISTANT == "both":  # same normalization as config-schema.js normalizeAssistant()
+    ASSISTANT = "claude"
+    SECONDARY.append("copilot")
+SECONDARY = [s for i, s in enumerate(SECONDARY) if s != ASSISTANT and s not in SECONDARY[:i]]
+_CHOSEN = {ASSISTANT, *SECONDARY}
+TARGET_COPILOT = "copilot" in _CHOSEN
+TARGET_CLAUDE = "claude" in _CHOSEN or not TARGET_COPILOT
+TARGETS = [t for t, on in (("claude", TARGET_CLAUDE), ("copilot", TARGET_COPILOT)) if on]
 MCP_IDS = [s for s in os.environ.get("MCP", "").replace(" ", "").split(",") if s]
 EDITOR = os.environ.get("EDITOR_CHOICE", "vscode")
 
@@ -138,7 +146,7 @@ else:
 # ------------------------------------------------------ .claude/settings.json
 
 settings_path = TARGET / ".claude" / "settings.json"
-settings = read_json(settings_path, {})
+settings = read_json(settings_path, {}) if TARGET_CLAUDE else {}
 env = dict(settings.get("env", {}))
 
 OTEL_KEYS = [
@@ -148,7 +156,10 @@ OTEL_KEYS = [
     "OTEL_EXPORTER_OTLP_PROTOCOL",
 ]
 
-if TELEMETRY:
+if not TARGET_CLAUDE:
+    print("  - no Claude Code target — .claude/settings.json not written"
+          + (" (telemetry covers Claude Code only)" if TELEMETRY else ""))
+elif TELEMETRY:
     env["CLAUDE_CODE_ENABLE_TELEMETRY"] = "1"
     env["OTEL_METRICS_EXPORTER"] = EXPORTER
     if EXPORTER == "otlp":
@@ -161,13 +172,14 @@ else:
         env.pop(k, None)
     print("  - telemetry off — no OTel env written")
 
-if env:
-    settings["env"] = env
-else:
-    settings.pop("env", None)
-write_json(settings_path, settings, ".claude/settings.json")
+if TARGET_CLAUDE:
+    if env:
+        settings["env"] = env
+    else:
+        settings.pop("env", None)
+    write_json(settings_path, settings, ".claude/settings.json")
 
-if TELEMETRY and EXPORTER == "otlp":
+if TARGET_CLAUDE and TELEMETRY and EXPORTER == "otlp":
     src = ROOT / "scripts" / "otel-collector"
     if src.exists():
         if DRY:
@@ -187,9 +199,13 @@ if not entry:
 elif not entry.get("copy"):
     print(f"  - editor \"{entry.get('label', key)}\" — nothing to write (see ONBOARDING.md)")
 else:
+    assistants = [emap.get("assistants", {}).get(a) for a in TARGETS]
+    assistants = [a for a in assistants if a]
     extras = []
+    if entry.get("mergesAssistantExtensions"):
+        extras += [x for a in assistants for x in a.get("vscodeExtensions", [])]
     if entry.get("mergesPresetExtensions"):
-        extras = read_json(ROOT / "presets" / STACK / "vscode-extensions.json", {}).get("recommendations", [])
+        extras += read_json(ROOT / "presets" / STACK / "vscode-extensions.json", {}).get("recommendations", [])
 
     for c in entry["copy"]:
         src = ROOT / c["from"]
@@ -209,6 +225,18 @@ else:
                     recs.append(r)
             merged["recommendations"] = recs
             write_json(dst, merged, f"{c['to']} ({len(recs)} recommendations)")
+        elif strategy == "render-jetbrains-plugins":
+            ids = [a["jetbrainsPlugin"] for a in assistants if a.get("jetbrainsPlugin")]
+            xml = src.read_text().replace("<!-- sdd-speckit:plugins -->", "\n  ".join(f'<plugin id="{i}" />' for i in ids))
+            if DRY:
+                print(f"  would: write {c['to']} (plugins: {', '.join(ids)})")
+            else:
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                dst.write_text(xml)
+                print(f"  - wrote {c['to']} (plugins: {', '.join(ids)})")
+            for a in assistants:
+                if a.get("jetbrainsPlugin"):
+                    print(f"  - JetBrains plugin required: {a['jetbrainsPlugin']} ({a.get('label', '')})")
         elif strategy == "merge-shallow":
             write_json(dst, {**read_json(dst, {}), **read_json(src, {})}, c["to"])
         else:
@@ -219,19 +247,55 @@ else:
                 shutil.copy(src, dst)
                 print(f"  - wrote {c['to']}")
 
-    if entry.get("pluginId"):
-        print(f"  - JetBrains plugin required: {entry['pluginId']}")
+
+# ----------------------------------------------------------- GitHub Copilot
+# The bash path has no Node, so it copies the committed render in adapters/copilot/dist/ instead of
+# rendering. `npm run check:copilot` keeps that render in step with the sources.
+
+BLOCK_BEGIN = "<!-- sdd-speckit:begin"
+BLOCK_END = "<!-- sdd-speckit:end -->"
+
+
+def merge_instructions(existing, block):
+    if not existing:
+        return block
+    start, end = existing.find(BLOCK_BEGIN), existing.find(BLOCK_END)
+    if start != -1 and end > start:
+        after = existing[end + len(BLOCK_END):]
+        return existing[:start] + block + (after[1:] if after.startswith("\n") else after)
+    return existing.rstrip("\n") + "\n\n" + block
+
+
+if TARGET_COPILOT:
+    dist = ROOT / "adapters" / "copilot" / "dist"
+    if not dist.exists():
+        print("  ! adapters/copilot/dist/ is missing — Copilot files not written. With Node 18+, run:", file=sys.stderr)
+        print("      npx create-sdd-speckit-app . --emit=copilot", file=sys.stderr)
+    else:
+        count = 0
+        for src in sorted(p for p in dist.rglob("*") if p.is_file() and p.name != ".DS_Store"):
+            rel = src.relative_to(dist)
+            dst = TARGET / rel
+            count += 1
+            if DRY:
+                continue
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            if rel.as_posix() == ".github/copilot-instructions.md":
+                dst.write_text(merge_instructions(dst.read_text() if dst.exists() else "", src.read_text()))
+            else:
+                shutil.copyfile(src, dst)
+        print(f"  {'would: copy' if DRY else '- copied'} {count} GitHub Copilot files from adapters/copilot/dist/")
 
 # ------------------------------------------------------- config record
 
 write_json(
     TARGET / ".specify" / "sdd-speckit.json",
     {
-        "configVersion": 1,
+        "configVersion": 2,
         "generatedBy": "install.sh",
         "telemetry": {"enabled": TELEMETRY, "exporter": EXPORTER, "endpoint": ENDPOINT},
         "stack": STACK,
-        "assistant": {"primary": ASSISTANT, "secondary": SECONDARY, "speckitIntegration": INTEGRATION},
+        "assistant": {"primary": ASSISTANT, "secondary": SECONDARY, "targets": TARGETS, "speckitIntegration": INTEGRATION},
         "mcp": {"catalog": MCP_IDS, "custom": CUSTOM},
         "editor": EDITOR,
     },
@@ -240,6 +304,10 @@ write_json(
 
 pending = [BY_ID[i]["displayName"] for i in MCP_IDS if (BY_ID.get(i, {}).get("auth") or {}).get("kind") != "none"]
 if pending:
-    print("\nStill to authorize — writing .mcp.json does not complete an OAuth login:")
+    print("\nStill to authorize — writing .mcp.json does not complete an OAuth login.")
+    if TARGET_CLAUDE:
+        print("  Claude Code: run /mcp once in the project.")
+    if TARGET_COPILOT:
+        print("  GitHub Copilot: start each server when VS Code or the Copilot CLI asks.")
     for name in pending:
         print(f"    - {name}")

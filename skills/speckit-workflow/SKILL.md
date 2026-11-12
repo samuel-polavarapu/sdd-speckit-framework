@@ -81,17 +81,32 @@ Keep these apart. They are unrelated.
 
 | Name | What it is | Where it lives |
 |---|---|---|
+<!-- claude-only:start -->
 | **Claude Code hooks** | Lifecycle event handlers — `PreToolUse`, `SessionEnd` — that run shell commands | `hooks/hooks.json` |
+<!-- claude-only:end -->
+<!-- copilot-only
+| **GitHub Copilot hooks** | Lifecycle event handlers — `preToolUse`, `postToolUse` — that run shell commands | `.github/hooks/sdd-speckit.json` |
+-->
 | **Speckit extension hooks** | Extension points that Speckit extensions declare | `.specify/extensions.yml` |
 
 ## Command naming
 
+<!-- claude-only:start -->
 This plugin's commands are namespaced: `/sdd-speckit:speckit.plan`.
 
 `specify init --integration claude` installs Speckit's own copies into `.claude/skills/`, named
 with a hyphen and invoked as `/speckit-plan`. The two sets do not collide. The hyphenated form is
 Speckit's own scripted workflow. The namespaced form is this plugin's, which adds a pinned model
 tier and a phase-matched subagent.
+<!-- claude-only:end -->
+<!-- copilot-only
+This framework's phases are skills in `.github/skills/`, invoked as `/sdd-speckit-plan`.
+
+`specify init --integration copilot` installs Speckit's own copies into `.github/skills/`, named
+with a hyphen and invoked as `/speckit-plan`. The two sets do not collide. The `/speckit-*` form is
+Speckit's own scripted workflow. The `/sdd-speckit-*` form is this framework's, which routes the
+work to a phase-matched custom agent with a pinned model tier and tool set.
+-->
 
 ## More detail
 
