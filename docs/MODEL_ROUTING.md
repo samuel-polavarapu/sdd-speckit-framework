@@ -34,6 +34,14 @@ does not pretend otherwise.
 
 If you see a plugin claiming to switch models from a hook, that claim is wrong.
 
+## GitHub Copilot
+
+A Copilot skill cannot declare a model, so the tier moves to the custom agent. Each phase skill runs
+its work in a phase agent, and each agent's `model:` comes from the tier map in
+`adapters/copilot/adapter.json`. Copilot treats `model:` as a preference and falls back when the
+model is not enabled for the account. Work in the main chat runs on the model picked in the chat.
+See [COPILOT.md](COPILOT.md#model-tiers).
+
 ## Escalating mid-implementation
 
 `implementer` runs on sonnet. Its rule: **a bug that survives two focused attempts means stop.**
@@ -48,4 +56,4 @@ numbers instead of assumed.
 
 ## Related
 
-[RACI](RACI.md) · [Architecture](ARCHITECTURE.md) · [Installer](INSTALLER.md)
+[RACI](RACI.md) · [Architecture](ARCHITECTURE.md) · [Installer](INSTALLER.md) · [GitHub Copilot](COPILOT.md)

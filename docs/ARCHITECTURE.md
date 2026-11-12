@@ -1,6 +1,8 @@
 # Architecture
 
 How this repo's parts map onto Claude Code primitives, and why each part is the primitive it is.
+The same parts are rendered to GitHub Copilot primitives by `installer/create-sdd-speckit-app/src/copilot.js`.
+The mapping is in [COPILOT.md](COPILOT.md).
 
 ## The rule that decides the primitive
 
@@ -27,7 +29,8 @@ subagent.** Every component here follows it.
 | `mcp/` | Data | 6 + custom | Connector catalog and `.mcp.json` fragments |
 | `editors/` | Data | 3 targets | Editor extension scaffolding |
 | `installer/` | Node + bash CLI | 2 paths | The five questions, then scaffolding |
-| `scripts/hooks/*.sh` | Shell | 4 | What the hooks actually run |
+| `scripts/hooks/*.sh` | Shell | 4 | What the hooks actually run. `_payload.py` reads both the Claude Code and the Copilot hook payload. |
+| `adapters/copilot/` | Data + render | 1 + `dist/` | Tier, tool and routing maps for the Copilot render, and the committed render itself |
 
 ## Command to subagent routing
 
@@ -78,6 +81,7 @@ Unrelated mechanisms, unrelated schemas.
 | `.specify/` scaffolding, agent integration | **Speckit** (`specify init`) |
 | Presets, extensions, bundles | **Speckit** (`specify preset add`, …) |
 | Claude Code commands, agents, skills, hooks | **this repo** |
+| GitHub Copilot skills, custom agents, hooks, instructions (rendered) | **this repo** |
 | MCP catalog, editor scaffolding, the installer | **this repo** |
 
 The installer delegates step one to `specify init` rather than reimplementing it, and falls back

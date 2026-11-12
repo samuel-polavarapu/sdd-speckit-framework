@@ -1,6 +1,6 @@
 {
   "name": "sdd-speckit-framework",
-  "description": "Spec-Driven Development starter kit for Claude Code, packaging the Speckit workflow.",
+  "description": "Spec-Driven Development starter kit for Claude Code (this plugin) and GitHub Copilot (rendered by the installer), packaging the Speckit workflow.",
   "owner": {
     "name": "SDD Speckit Framework maintainers",
     "url": "https://github.com/your-org/sdd-speckit-framework"

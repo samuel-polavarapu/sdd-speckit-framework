@@ -11,10 +11,13 @@ disallowed-tools: ["Write", "Edit", "NotebookEdit"]
 ## This command never writes
 
 You produce a **report in the conversation** and nothing else. You do not create files, edit
-files, fix what you find, or run `/speckit.tasks` to patch a gap. The `Write`, `Edit` and
-`NotebookEdit` tools are removed from your tool pool for this command, so an attempt will fail —
-that is intentional, not an obstacle to route around. Recommend the fix; let the user run the
-phase that owns it.
+files, fix what you find, or run `/speckit.tasks` to patch a gap. Recommend the fix; let the
+user run the phase that owns it.
+
+<!-- claude-only:start -->
+The `Write`, `Edit` and `NotebookEdit` tools are removed from your tool pool for this command, so
+an attempt will fail — that is intentional, not an obstacle to route around.
+<!-- claude-only:end -->
 
 ## Read first
 
