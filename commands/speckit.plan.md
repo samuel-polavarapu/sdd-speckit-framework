@@ -28,6 +28,9 @@ with the project's industry and stack profiles, so it wins. A line of the form
 
 ## Refuse to start when
 
+- The `human-approval` gate stops the write to `plan.md`. A person approves the spec first:
+  show them the command from the gate's message and wait. Never run it yourself.
+
 `spec.md` still contains a `[NEEDS CLARIFICATION]` marker that affects the architecture. Say which
 marker, and send the user to `/sdd-speckit:speckit.clarify`. Planning around a guess wastes the
 whole downstream phase.
@@ -42,7 +45,7 @@ record what it finds in `research.md`.
 3. Design the component view. One responsibility per component, and name what each depends on.
 4. Record every decision that had a real alternative in the Key decisions table, with the
    trade-off you accepted. A decision with no alternative listed is not a decision, it is a habit.
-5. Write the four companion artifacts:
+5. Write the companion artifacts:
    - `research.md` from `research-template.md` — one section per
      unknown, each closed with a decision.
    - `data-model.md` from `data-model-template.md` — skip only if
@@ -51,6 +54,12 @@ record what it finds in `research.md`.
      Schema, or a typed CLI signature), and beside it `<name>.md` from `contract-template.md`.
    - `quickstart.md` from `quickstart-template.md` — every command
      copy-pasteable, every step with an expected result.
+   - `architecture.md` from `architecture-template.md` — the C4 context, container and
+     component views as Mermaid. Every element names a source path or a plan section.
+   - `deployment.md` from `deployment-template.md` — the deployment view, the start-up order
+     and the configuration names. Names only: never a value.
+   A service with an HTTP interface gets `contracts/openapi.json` (or `.yaml`) as its contract.
+   The tasks phase adds a test that fails when the running service and that file disagree.
 6. Break delivery into phases, each ending in a thin vertical slice with an observable exit
    criterion.
 7. Fill every row and section a profile added: the extra Technical context and Test strategy
@@ -68,6 +77,8 @@ record what it finds in `research.md`.
 - `specs/<NNN>-<slug>/data-model.md`
 - `specs/<NNN>-<slug>/contracts/`
 - `specs/<NNN>-<slug>/quickstart.md`
+- `specs/<NNN>-<slug>/architecture.md`
+- `specs/<NNN>-<slug>/deployment.md`
 
 ## Report
 

@@ -42,7 +42,7 @@
       "reviewedOn": "2026-11-13"
     }
   ],
-  "checklistKinds": ["requirements", "security", "privacy", "accessibility", "release", "soc2-change"],
+  "checklistKinds": ["requirements", "security", "sast", "privacy", "accessibility", "release", "soc2-change"],
   "harness": {
     "sensitivePatterns": []
   }

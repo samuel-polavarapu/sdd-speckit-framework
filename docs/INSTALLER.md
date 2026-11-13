@@ -63,7 +63,7 @@ Every answer is also a flag, so CI needs no TTY.
 | `--mcp-input=` | `<id>.<field>=<value>`, repeatable | — |
 | `--editor=` | `vscode` \| `cursor` \| `jetbrains` \| `none` | `vscode` |
 | `--gates=` | `default` \| `off` \| `warn` \| `block` — all gates at once | `default` |
-| `--gate=` | `<id>=<off\|warn\|block>`, repeatable. Ids: `constitution-guard`, `spec-before-code`, `tasks-before-implement`, `test-first`, `secrets-scan`, `lint-format` | — |
+| `--gate=` | `<id>=<off\|warn\|block>`, repeatable. Ids: `constitution-guard`, `spec-before-code`, `tasks-before-implement`, `test-first`, `secrets-scan`, `lint-format`, `destructive-commands`, `human-approval` | — |
 | `--dry-run` | — | off |
 | `--no-speckit` | — | off |
 | `--force-interactive` | Node only | off (asks the eight questions without a TTY) |

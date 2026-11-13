@@ -73,7 +73,7 @@ Any command that declares `disallowed-tools` gets the same treatment automatical
 ## The harness gates
 
 `.github/hooks/sdd-speckit.json` runs the gate runner (`scripts/harness/hook.sh pre`, then `post`)
-around every tool call. The constitution guard is one of its six gates. The gates, their modes and
+around every tool call. The constitution guard is one of its eight gates. The gates, their modes and
 the configuration are the same as in Claude Code: see [HARNESS.md](HARNESS.md).
 
 What differs on Copilot:

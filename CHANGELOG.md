@@ -4,6 +4,48 @@ All notable changes to `sdd-speckit-framework`. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning is
 [semantic](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Run control taken from the Spec Kit SDD factory template: command and read guards, human
+approvals, status, and standard deliverables per feature.
+
+### Added
+
+- **`destructive-commands` gate.** The assistant's shell commands are checked one statement at a
+  time. A force push, a hard reset, a protected recursive delete, a SQL drop and an
+  infrastructure apply or delete are refused.
+- **`human-approval` gate and `gate.py approve`.** The plan, the tasks and the code each start
+  after a person approved the artifact before them. An approval is bound to a fingerprint and
+  goes stale when the artifact changes. The assistant cannot record one.
+- **`secrets-scan` covers reads and commands.** Reading a credential file, naming one in a
+  command, or putting a secret in a command is stopped.
+- **`/sdd-speckit:speckit.status`**: read-only phases, approvals, gates and the next step.
+  `gate.py status` prints the same.
+- **`/sdd-speckit:speckit.taskstoissues`**: tasks to tracker issues, after a yes.
+- **Standard deliverables.** `architecture-template.md` (C4 in Mermaid), `deployment-template.md`,
+  a `sast` checklist with severities, and three verification tasks in the tasks template:
+  contract drift test, diagram check, coverage report.
+- **`scripts/coverage-report.py`**: a Markdown coverage report from Cobertura or JaCoCo XML,
+  with a threshold (`harness.coverageThreshold`, default 80).
+
+### Changed
+
+- The Claude Code pre-write hook also runs on `Bash` and `Read`. Onboarding widens the matcher
+  of a project wired before.
+- Greenfield starts both new gates at `block`. Brownfield starts `destructive-commands` at
+  `block` and `human-approval` at `warn`. A project onboarded earlier keeps both `off` until it
+  is onboarded again.
+
+### Not built from the template
+
+- Its phase orchestrators, cost guardrail, Jira sync, project scaffolds, requirement intake and
+  the measured token-usage dashboard.
+
+### Not verified
+
+- The new gates were tested with fixture payloads. They were not run in a live Claude Code or
+  GitHub Copilot session, so the shell tool names Copilot sends are taken from its docs.
+
 ## [0.3.0] — 2026-11-13
 
 Artifact templates that vary by industry and technology, onboarding for new and existing

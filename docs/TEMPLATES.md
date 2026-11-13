@@ -114,6 +114,8 @@ appends.
 | `quickstart-template.md` | `sections-end` |
 | `research-template.md` | none |
 | `contract-template.md` | `sections-end` |
+| `architecture-template.md` | `preamble`, `sections-after-components`, `verification-rows` |
+| `deployment-template.md` | `preamble`, `unit-rows`, `configuration-rows`, `sections-end` |
 | `adr-template.md` | `sections-end` |
 | `implementation-log-template.md` | `log-rows`, `sections-end` |
 | `analyze-report-template.md` | `gates-rows`, `sections-end` |
@@ -131,6 +133,7 @@ appends.
 | `checklists/security-template.md` | `identity-rows`, `input-rows`, `data-rows`, `supply-chain-rows`, `sections-before-result` |
 | `checklists/privacy-template.md` | `inventory-rows`, `minimisation-rows`, `rights-rows`, `sharing-rows`, `sections-before-result` |
 | `checklists/accessibility-template.md` | `perceivable-rows`, `operable-rows`, `understandable-rows`, `robust-rows`, `sections-before-result` |
+| `checklists/sast-template.md` | `input-rows`, `access-rows`, `data-rows`, `dependency-rows`, `sections-before-findings` |
 | `checklists/release-template.md` | `evidence-rows`, `rollout-rows`, `operations-rows`, `signoff-rows`, `sections-before-result` |
 
 ### Project templates
@@ -160,6 +163,8 @@ appends.
 | `data-model-template.md` | `/sdd-speckit:speckit.plan` | `data-model.md` |
 | `contract-template.md` | `/sdd-speckit:speckit.plan` | `contracts/<name>.md`, beside the machine-readable definition |
 | `quickstart-template.md` | `/sdd-speckit:speckit.plan` | `quickstart.md` |
+| `architecture-template.md` | `/sdd-speckit:speckit.plan` | `architecture.md`: C4 context, container and component views in Mermaid |
+| `deployment-template.md` | `/sdd-speckit:speckit.plan` | `deployment.md`: deployment view, start-up order, configuration names |
 | `adr-template.md` | `/sdd-speckit:speckit.plan` | `docs/adr/NNNN-<title>.md`, for a decision that outlives the feature |
 | `checklists/<kind>-template.md` | `/sdd-speckit:speckit.checklist <kind>` | `specs/<NNN>-<slug>/checklists/<kind>.md` |
 | `checklist-template.md` | `/sdd-speckit:speckit.checklist` | A kind that has no template of its own |

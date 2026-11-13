@@ -54,6 +54,9 @@ These tests must exist and **must fail** before Phase 3 starts.
 | T013 | [Write `quickstart.md`.] | `quickstart.md` | T009 | `[P]` |
 | T014 | [Performance check against NFR-001.] | `[path]` | T012 | |
 | T015 | [Remove duplication found in review.] | `[path]` | T012 | |
+| T016 | [Contract drift test: fails when the service and `contracts/openapi.json` disagree. Omit when there is no HTTP interface.] | `[test path]` | T012 | |
+| T017 | [Check every row of the Verification table in `architecture.md` against the code.] | `architecture.md` | T015 | |
+| T018 | [Run the tests with coverage and generate `coverage-report.md`. Never write it by hand.] | `coverage-report.md` | T016 | |
 
 <!-- slot:sections-after-phases -->
 ## Requirement coverage

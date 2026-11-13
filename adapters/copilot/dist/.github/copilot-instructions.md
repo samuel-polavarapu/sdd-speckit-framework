@@ -22,6 +22,8 @@ constitution → specify → clarify → plan → checklist → tasks → analyz
 | `/sdd-speckit-analyze` | **nothing: a report** | `qa-analyst-readonly` | opus |
 | `/sdd-speckit-implement` | source code, `implementation-log.md` | `implementer`, `code-reviewer` | sonnet |
 | `/sdd-speckit-converge` | `converge-report.md`, appended gap tasks | `qa-analyst`, `code-reviewer` | opus |
+| `/sdd-speckit-taskstoissues` | tracker issues, `issues.md` | none | haiku |
+| `/sdd-speckit-status` | **nothing: a report** | none | haiku |
 | `/sdd-speckit-setup` | project config | none | sonnet |
 
 ## Rules

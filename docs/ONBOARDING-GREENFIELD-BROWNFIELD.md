@@ -208,6 +208,7 @@ check, an owner and a target date. One gate moves at a time.
 | `constitution-guard` | block | — |
 | `secrets-scan` | block | — |
 | `lint-format` | warn | The default branch is lint-clean, and the format command changes nothing |
+| `human-approval` | warn | Every feature merged in the last period has its three approval records, and none was stale at merge |
 | `test-first` | warn | The test command runs in CI, and the weekly warn count is below the agreed number |
 | `spec-before-code` | warn | Three features shipped through the phases; every active area has a baseline spec |
 | `tasks-before-implement` | warn | The same as `spec-before-code` |

@@ -12,11 +12,11 @@ onboard → constitution → specify → clarify → plan → checklist → task
 | constitution | `.specify/memory/constitution.md` | The only phase that may change that file. |
 | specify | `specs/NNN-slug/spec.md` | What and why. No technology. |
 | clarify | resolved markers in `spec.md` | Ask; do not guess. |
-| plan | `plan.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md` | How. Each choice names the option it rejected. |
+| plan | `plan.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md`, `architecture.md`, `deployment.md` | How. Each choice names the option it rejected. |
 | checklist | `checklists/<kind>.md` | A **no** blocks the phase the checklist gates. |
 | tasks | `tasks.md` | A test task comes before the task it covers. |
 | analyze | a report, no file | Read-only. |
-| implement | source code, ticked tasks, `implementation-log.md` | Follow `tasks.md` order. |
+| implement | source code, ticked tasks, `implementation-log.md`, generated `coverage-report.md` | Follow `tasks.md` order. |
 | converge | appended tasks, a report | Compare the spec with what shipped. |
 
 Run a phase by name. Claude Code: `/sdd-speckit:speckit.<phase>`. GitHub Copilot:
@@ -73,10 +73,14 @@ Each gate is `off`, `warn` or `block` in `.specify/sdd-speckit.json`.
 | `test-first` | A source change comes with a test change. |
 | `secrets-scan` | No credential or sensitive value is written. |
 | `lint-format` | The lint and format commands pass. |
+| `destructive-commands` | The assistant runs no force push, hard reset, protected delete, SQL drop or infrastructure apply. |
+| `human-approval` | The plan, the tasks and the code each start after a person approved the artifact before them. |
 
 - See the current modes and the active feature: `python3 .specify/sdd-speckit/scripts/harness/gate.py status`
 - A blocked write is a signal to run the missing phase. Do not work around a gate, and do not
   write through the shell to avoid one.
+- **An approval is a person's decision.** Never run `gate.py approve`, and never write under
+  `specs/<feature>/approvals/`. Show the person the command and wait.
 - The active feature is the one named in `.specify/.active-spec`, or the `NNN-slug` branch.
 
 <!-- slot:sections-end -->

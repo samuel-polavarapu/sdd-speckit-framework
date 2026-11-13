@@ -346,7 +346,7 @@ export function instructionsBlock(frameworkRoot, adapter) {
   ].join("\n");
 }
 
-const PHASE_ORDER = ["onboard", "discover", "constitution", "baseline", "specify", "clarify", "plan", "checklist", "tasks", "analyze", "implement", "converge", "setup"];
+const PHASE_ORDER = ["onboard", "discover", "constitution", "baseline", "specify", "clarify", "plan", "checklist", "tasks", "analyze", "implement", "converge", "taskstoissues", "status", "setup"];
 function phaseOrder(a, b) {
   const ia = PHASE_ORDER.indexOf(a.replace(/^speckit\.|\.md$/g, ""));
   const ib = PHASE_ORDER.indexOf(b.replace(/^speckit\.|\.md$/g, ""));

@@ -41,6 +41,7 @@ VENDOR = [
     "scripts/compose-templates.py",
     "scripts/onboard-project.py",
     "scripts/discover-scan.py",
+    "scripts/coverage-report.py",
     "scripts/harness",
     "scripts/hooks/_payload.py",
 ]
@@ -173,6 +174,8 @@ def resolve(project, args, defs):
             "exemptGlobs": harness.get("exemptGlobs") or defs["globs"]["exempt"],
             "commands": commands,
             "secretsAllow": harness.get("secretsAllow") or [],
+            "destructiveAllow": harness.get("destructiveAllow") or [],
+            "coverageThreshold": harness.get("coverageThreshold") if isinstance(harness.get("coverageThreshold"), (int, float)) else 80,
             "gitleaks": harness.get("gitleaks") if harness.get("gitleaks") in defs.get("gitleaksModes", []) else "auto",
         },
         "checklistKinds": checklist_kinds(industry),
@@ -274,6 +277,10 @@ def merge_gitignore(project, dry_run):
     return ["%s .gitignore (%d harness state path(s))" % ("would update" if dry_run else "updated", len(missing))]
 
 
+PRE_MATCHER = "Write|Edit|MultiEdit|NotebookEdit|Bash|Read"
+OLD_PRE_MATCHERS = ("Write|Edit|MultiEdit|NotebookEdit", "Write|Edit|NotebookEdit")
+
+
 def hook_entry(stage, matcher):
     return {"matcher": matcher, "hooks": [{
         "type": "command",
@@ -297,13 +304,18 @@ def merge_settings(project, facts, defs, dry_run):
     settings["permissions"] = perms
 
     hooks = dict(settings.get("hooks") or {})
-    for event, stage, matcher in (("PreToolUse", "pre", "Write|Edit|MultiEdit|NotebookEdit"),
+    for event, stage, matcher in (("PreToolUse", "pre", PRE_MATCHER),
                                   ("PostToolUse", "post", "Write|Edit|MultiEdit")):
         entries = list(hooks.get(event) or [])
         wired = any("sdd-speckit/scripts/harness/gate.py" in (h.get("command") or "")
                     for e in entries for h in (e.get("hooks") or []))
         if not wired:
             entries.append(hook_entry(stage, matcher))
+        for e in entries:
+            # A project wired before the command and read gates existed gets the wider matcher.
+            if e.get("matcher") in OLD_PRE_MATCHERS and stage == "pre" and any(
+                    "sdd-speckit/scripts/harness/gate.py" in (h.get("command") or "") for h in (e.get("hooks") or [])):
+                e["matcher"] = matcher
         hooks[event] = entries
     settings["hooks"] = hooks
 

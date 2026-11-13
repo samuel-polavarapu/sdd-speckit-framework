@@ -26,7 +26,8 @@ test("a stack-only composition equals the 0.2 preset templates", { skip }, () =>
     assert.equal(compose(dir, "--stack", stack).status, 0);
     for (const f of ["plan-template.md", "tasks-template.md"]) {
       assert.equal(
-        withoutHeader(readFileSync(join(dir, OVERRIDES, f), "utf8")),
+        // The base template later gained three verification tasks to the base template. The rest is still the 0.2 text.
+        withoutHeader(readFileSync(join(dir, OVERRIDES, f), "utf8")).replace(/^\| T01[678] \|.*\n/gm, ""),
         readFileSync(join(fixtures, stack, f), "utf8"),
         `${stack}/${f}`
       );
@@ -135,9 +136,9 @@ test("onboarding records the industry's checklist kinds, or the base kinds", { s
     assert.equal(r.status, 0, r.stderr);
     return JSON.parse(readFileSync(join(dir, ".specify", "sdd-speckit.json"), "utf8")).checklistKinds;
   };
-  assert.deepEqual(kinds("none"), ["accessibility", "privacy", "release", "requirements", "security"]);
+  assert.deepEqual(kinds("none"), ["accessibility", "privacy", "release", "requirements", "sast", "security"]);
   const fs = kinds("financial-services");
-  assert.ok(fs.includes("pci-scope") && fs.includes("sox-change") && fs.includes("security"));
+  assert.ok(fs.includes("pci-scope") && fs.includes("sox-change") && fs.includes("security") && fs.includes("sast"));
 });
 
 test("a stack's recommended connectors are suggested only when they need nothing first", () => {

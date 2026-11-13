@@ -12,6 +12,7 @@
     "scripts/compose-templates.py",
     "scripts/onboard-project.py",
     "scripts/discover-scan.py",
+    "scripts/coverage-report.py",
     "scripts/harness",
     "scripts/hooks/guard-constitution.sh",
     "scripts/hooks/log-artifact-change.sh",
@@ -122,6 +123,14 @@
     "speckit.setup": {
       "agents": [],
       "writes": "project config"
+    },
+    "speckit.status": {
+      "agents": [],
+      "writes": "**nothing: a report**"
+    },
+    "speckit.taskstoissues": {
+      "agents": [],
+      "writes": "tracker issues, `issues.md`"
     }
   }
 }
