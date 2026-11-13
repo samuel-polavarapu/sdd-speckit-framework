@@ -76,7 +76,7 @@ tasks `R###`, stack tasks `S###`, checklist rows `C-<XX>-nn` and `C-ST-nn`.
 
 ## Harness gates
 
-Six gates run in the assistant's hooks and in CI. Each is `off`, `warn` or `block` in
+Eight gates run in the assistant's hooks and in CI. Each is `off`, `warn` or `block` in
 `.specify/sdd-speckit.json`.
 
 | Gate | Stops |
@@ -87,6 +87,8 @@ Six gates run in the assistant's hooks and in CI. Each is `off`, `warn` or `bloc
 | `test-first` | A source write when the branch has no test change |
 | `secrets-scan` | A credential, a key, or a value the industry profile marks as sensitive |
 | `lint-format` | Lint or format failures (after the write; in CI, the full commands) |
+| `destructive-commands` | A force push, hard reset, protected delete, SQL drop or infrastructure apply run by the assistant |
+| `human-approval` | A plan, task list or code change that starts before a person approved the artifact before it |
 
 The active feature is the one in `.specify/.active-spec`, which the phases write, or the
 `NNN-slug` branch.

@@ -25,6 +25,9 @@ with the project's industry and stack profiles, so it wins. A line of the form
 
 ## Refuse to start when
 
+- The `human-approval` gate stops the write to `tasks.md`. A person approves the plan first:
+  show them the command from the gate's message and wait. Never run it yourself.
+
 - `plan.md` does not exist. Send the user to `/sdd-speckit:speckit.plan`.
 - The Constitution check in `plan.md` has an unjustified FAIL.
 - A `[NEEDS CLARIFICATION]` marker is still open in `spec.md`. This is constitution gate N4.
@@ -49,7 +52,14 @@ Delegate to the **task-planner** subagent.
    its real file path and its dependencies. When a row does not apply to this feature, keep the
    id and write the reason in place of the path. Add the profile's `NFR-<XX>-nn` requirements to
    the coverage table.
-9. Write the feature's directory name to `.specify/.active-spec`.
+9. End Phase 5 with the verification tasks, in this order. Leave one out only when its artifact
+   does not exist, and say so in the report.
+   - **Contract drift test** — a test that fails when the running service and
+     `contracts/openapi.json` disagree. Only for a service with an HTTP interface.
+   - **Diagram verification** — check each row of the Verification table in `architecture.md`
+     against the code, and correct the diagram or the code.
+   - **Coverage report** — run the tests with coverage and generate `coverage-report.md`.
+10. Write the feature's directory name to `.specify/.active-spec`.
 
 ## Write to
 

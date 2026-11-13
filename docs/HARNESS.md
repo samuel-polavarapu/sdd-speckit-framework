@@ -2,7 +2,7 @@
 
 A model writes the code. The **harness** is everything around the model that decides what it
 reads, what it may do, and what happens when it does the wrong thing. This document has two
-parts: the concepts, each with how this framework uses it, and the reference for the six gates.
+parts: the concepts, each with how this framework uses it, and the reference for the eight gates.
 
 Related: [TEMPLATES.md](TEMPLATES.md) · [ONBOARDING-GREENFIELD-BROWNFIELD.md](ONBOARDING-GREENFIELD-BROWNFIELD.md) ·
 [INDUSTRY_PROFILES.md](INDUSTRY_PROFILES.md) · [ARCHITECTURE.md](ARCHITECTURE.md) · [COPILOT.md](COPILOT.md)
@@ -112,7 +112,7 @@ Assistants differ. Claude Code has hook matchers, permission rules and post-writ
 GitHub Copilot hooks have no matcher and no permission file. Another assistant may have no hooks
 at all. A person can also write code with no assistant.
 
-The pull request is the one place every change goes through. `gate.py ci` runs the same six
+The pull request is the one place every change goes through. `gate.py ci` runs the same
 gates there, with the same modes from the same file. A gate that an assistant missed locally
 still fails the pull request.
 
@@ -143,7 +143,7 @@ One runner, `scripts/harness/gate.py`, serves the hooks and CI. One file,
 `scripts/harness/gates.json`, defines the gates, the modes, the defaults, the default globs, the
 secret patterns and the baseline permissions.
 
-### The six gates
+### The eight gates
 
 | Gate | Hook check (per write) | CI check (per pull request) |
 |---|---|---|
@@ -153,11 +153,18 @@ secret patterns and the baseline permissions.
 | `test-first` | Pre. A source write needs a test file among the uncommitted changes, or in the commits since the merge base with the default branch. Not in a git repository: the gate passes. | Source changed: a test file must change too, and the first commit that touches a test must not come after the first commit that touches source. |
 | `secrets-scan` | Pre. The target path is not a credential file by name, and the text being written matches no secret pattern. | No changed file is a credential file by name, and no added line matches a pattern. When `gitleaks` is on `PATH`, it also scans the pull request's commits. |
 | `lint-format` | Post. Runs `commands.lintFile` on each written source or test file, with a 20 second limit. A missing or slow linter never blocks. | Runs `commands.lint` and `commands.format`. A non-zero exit is a finding. |
+| `destructive-commands` | Pre, on a shell command. No statement is a force push, a hard reset, a `git clean`, a recursive forced delete of a protected path, a SQL `DROP` or `TRUNCATE`, or an infrastructure or cluster apply, destroy or delete. | Not checked. A command leaves nothing in a diff. |
+| `human-approval` | Pre. A write to `plan.md`, to `tasks.md` or to source needs a current approval of the artifact before it. A write under `approvals/`, and the approve command itself, are always refused. | The feature's `plan.md` or `tasks.md` changed, or source changed: the matching approval must be current. |
 
 Notes:
 
 - A file is **source**, **test**, **exempt** or **other**. The runner checks `testGlobs` first,
   then `exemptGlobs`, then `sourceGlobs`. Only a source file triggers the three process gates.
+- `secrets-scan` also checks **reads** and **shell commands**: a file tool that would read a
+  credential file, a command that reads one (`cat`, `grep`, `source`, an interpreter, a `<`
+  redirect, ...), and a command whose text matches a secret pattern. A read puts the contents in
+  the conversation, so it counts. Naming a credential file without reading it, as in
+  `echo .env >> .gitignore` or `git rm --cached .env`, passes.
 - Credential files by name: `.env`, `.env.*`, `*.pem`, `*.p12`, `*.pfx`, `id_rsa`, `id_ed25519`,
   `credentials.json`, `secrets/**`. Allowed: `.env.example`, `.env.sample`, `.env.template`.
 - Secret patterns: the ten in `gates.json` (private key, AWS key id, GitHub token, Slack token,
@@ -188,10 +195,61 @@ and is in `.gitignore`.
 | `test-first` | block | warn | off |
 | `secrets-scan` | block | block | off |
 | `lint-format` | block | warn | off |
+| `destructive-commands` | block | block | off |
+| `human-approval` | block | warn | off |
+
+A project onboarded before a gate existed keeps that gate **off** until it is onboarded again.
 
 **migrated** is what a project gets when its record was written before 0.3.0 and has no
 `harness.gates`. It keeps the 0.2 behaviour: only the constitution guard runs. Nothing starts to
 block on upgrade. The project opts in by giving a mode: `--mode=…`, or `--gates=default`.
+
+### Human approvals
+
+Three phases start from an artifact that a person must approve first.
+
+| Phase | The person approves | The gate then allows |
+|---|---|---|
+| `plan` | `spec.md` | a write to `plan.md` |
+| `tasks` | `plan.md` | a write to `tasks.md` |
+| `implement` | `tasks.md` | a write to source |
+
+The person reads the artifact and runs:
+
+```bash
+python3 .specify/sdd-speckit/scripts/harness/gate.py approve plan --spec 001-orders --approver "Ana Diaz"
+```
+
+- The record is `specs/<feature>/approvals/<phase>.json`: the approver, the time, optional
+  `--notes`, and a **fingerprint** of the approved file. Commit it, so that CI sees it.
+- **An approval goes stale when the approved file changes.** The gate then reports `stale` and
+  the person approves again. Ticking a task box does not change the fingerprint; adding,
+  removing or rewording a task does.
+- **The assistant never records an approval.** The gate refuses a write under `approvals/` (in
+  any letter case), a shell command that writes there (`>`, `cp`, `tee`, an interpreter, ...; a
+  read, `git add` or `git commit` passes) and a shell command that runs the approve command. The commands tell the assistant to show the
+  command and wait.
+- `gate.py status` lists each phase, whether its artifact is written, the state of its approval
+  (`valid`, `missing`, `stale`, `insufficient`, `not-ready`) and the next step. The status phase
+  (`speckit.status`) reports the same, read-only.
+
+This is a record of a decision, not proof of identity. Anyone with a shell can type a name, and
+the hook reads command text, so indirection (a script, a variable, an alias) gets past it. Use
+branch protection and a `CODEOWNERS` entry for `specs/*/approvals/` where you need to know who
+approved.
+
+### Destructive commands
+
+The gate reads the command of any shell tool call, one statement at a time (split on `;`, `&&`,
+`||`, `|` and newlines), so a harmless statement does not excuse the one beside it.
+`git push --force-with-lease` passes. `rm -rf node_modules` passes; `rm -rf` of `/`, `~`, `.`,
+`.git`, `.specify` or `specs` does not. The rules are in `gates.json` under
+`destructiveCommands`. A command that only mentions a blocked phrase inside a quoted string is
+also stopped: the person runs it themselves. The gate matches text, so it catches accidents,
+not a determined caller.
+
+In Claude Code the pre-write hook now also runs on `Bash` and `Read`. Onboarding widens the
+matcher of a project that was wired before.
 
 ### How the active feature is resolved
 
@@ -227,13 +285,18 @@ In `.specify/sdd-speckit.json`:
       "tasks-before-implement": "warn",
       "test-first": "warn",
       "secrets-scan": "block",
-      "lint-format": "warn"
+      "lint-format": "warn",
+      "destructive-commands": "block",
+      "human-approval": "warn"
     },
     "sourceGlobs": ["app/**", "src/**"],
     "testGlobs": ["tests/**", "**/test_*.py", "**/*_test.py"],
     "exemptGlobs": ["**/*.md", "docs/**", ".github/**", ".specify/**", "specs/**", ".claude/**", ".vscode/**", ".idea/**"],
     "commands": { "test": "uv run pytest", "lint": "uv run ruff check .", "format": "uv run ruff format --check .", "lintFile": "uv run ruff check {file}" },
-    "secretsAllow": []
+    "secretsAllow": [],
+    "destructiveAllow": [],
+    "coverageThreshold": 80,
+    "gitleaks": "auto"
   }
 }
 ```
@@ -245,6 +308,8 @@ In `.specify/sdd-speckit.json`:
 | `exemptGlobs` | Paths no process gate applies to | `gates.json` |
 | `commands` | `test`, `lint`, `format`, `lintFile`. `{file}` is replaced by the quoted path. | The stack profile and the scan |
 | `secretsAllow` | Pattern ids to skip, and path globs to skip | Empty. The team adds to it. |
+| `destructiveAllow` | Rule ids the destructive-commands gate skips: `force-push`, `hard-reset`, `git-clean`, `sql-drop`, `iac-apply`, `cloud-delete`, `cluster-delete`, `recursive-delete` | Empty |
+| `coverageThreshold` | Minimum line coverage in percent for `coverage-report.py` | 80 |
 | `gitleaks` | Whether the CI secrets scan also runs `gitleaks`: `auto`, `off` or `required` | `auto` |
 
 A value the team has set is kept on every later run. In `secretsAllow`, an entry that contains

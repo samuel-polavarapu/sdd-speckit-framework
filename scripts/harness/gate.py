@@ -3,7 +3,9 @@
 
   gate.py hook pre|post                 reads a tool-hook payload on stdin
   gate.py ci --base REF [--head REF]    checks the commits and the diff of a pull request
-  gate.py status [--json]               prints each gate's mode and the active spec
+  gate.py status [--json]               prints each gate's mode, the active spec and its phases
+  gate.py approve PHASE --approver NAME [--spec ID] [--notes TEXT]
+                                        a person approves the artifact a phase starts from
 
 Each gate has a mode in .specify/sdd-speckit.json -> harness.gates: off, warn or block.
   warn   reports and lets the change through
@@ -19,6 +21,7 @@ sys.dont_write_bytecode = True  # a __pycache__ inside the vendored copy would l
 
 import argparse
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -102,6 +105,7 @@ def load_config(root):
         "exemptGlobs": harness.get("exemptGlobs") or globs.get("exempt", []),
         "commands": harness.get("commands") or {},
         "secretsAllow": harness.get("secretsAllow") or [],
+        "destructiveAllow": harness.get("destructiveAllow") or [],
         "gitleaks": harness.get("gitleaks") if harness.get("gitleaks") in DEFS.get("gitleaksModes", []) else "auto",
         "patterns": list(DEFS.get("secretPatterns", [])) + list(sensitive),
         "industry": industry or "none",
@@ -323,6 +327,126 @@ def gitleaks_findings(root, cfg, base, head):
     return out, "gitleaks: %d finding(s)" % len(out)
 
 
+# -------------------------------------------------------------- approvals
+
+APPROVAL_DIR = "approvals"
+# The approve subcommand however it is spelled: gate.py approve, gate.py "approve", or gate.main(["approve", ...]).
+APPROVE_COMMAND = re.compile(r"\bgate\b.*\bapprove\b|\brun_approve\b", re.IGNORECASE | re.DOTALL)
+# A command that names an approval record under specs/.
+APPROVAL_PATH = re.compile(r"specs/[^\s\"']*\bapprovals\b", re.IGNORECASE)
+# Commands that only look at an approval record, never change it.
+APPROVAL_READ_ONLY = {"cat", "less", "more", "head", "tail", "ls", "grep", "rg", "jq", "diff", "stat", "wc", "file"}
+APPROVAL_READ_ONLY_GIT = {"status", "diff", "log", "show", "add", "commit", "ls-files", "blame"}
+TICKED = re.compile(r"\[[xX]\]")
+
+
+def approval_defs():
+    return {a["phase"]: a for a in DEFS.get("approvals", [])}
+
+
+def approval_fingerprint(root, spec, files):
+    """-> sha256 over the approved files, or None when one is missing. A ticked task box counts
+    as unticked, so that doing the approved tasks does not undo their approval."""
+    digest = hashlib.sha256()
+    for name in files:
+        try:
+            with open(os.path.join(root, "specs", spec, name), encoding="utf-8") as fh:
+                text = fh.read()
+        except OSError:
+            return None
+        text = TICKED.sub("[ ]", text.replace("\r\n", "\n"))
+        digest.update(name.encode() + b"\0" + text.encode() + b"\0")
+    return digest.hexdigest()
+
+
+def approval_path(root, spec, phase):
+    return os.path.join(root, "specs", spec, APPROVAL_DIR, "%s.json" % phase)
+
+
+def approval_status(root, spec, phase):
+    """-> (status, reason). status: valid, missing, stale, insufficient, or not-ready (the
+    artifact to approve does not exist yet)."""
+    rule = approval_defs().get(phase)
+    if not rule:
+        return "valid", "not a gated phase"
+    what = " and ".join(rule["approves"])
+    current = approval_fingerprint(root, spec, rule["approves"])
+    if current is None:
+        return "not-ready", "specs/%s/%s does not exist yet" % (spec, what)
+    record = read_json(approval_path(root, spec, phase))
+    if not isinstance(record, dict):
+        return "missing", "no person has approved %s" % what
+    if record.get("fingerprint") != current:
+        return "stale", "%s changed after %s approved it" % (what, record.get("approver") or "someone")
+    if not str(record.get("approver") or "").strip():
+        return "insufficient", "the approval record names no approver"
+    return "valid", "approved by %s" % record["approver"]
+
+
+def approve_help(spec, phase):
+    return ("A person records it, after reading the artifact:\n"
+            "  python3 .specify/sdd-speckit/scripts/harness/gate.py approve %s --spec %s --approver \"<name>\"\n"
+            "The assistant never records an approval." % (phase, spec))
+
+
+def run_approve(phase, spec, approver, notes):
+    root = find_root(os.getcwd())
+    rule = approval_defs().get(phase)
+    if not rule:
+        print("approve: '%s' is not a gated phase. Choose from: %s" % (phase, ", ".join(approval_defs())), file=sys.stderr)
+        return 2
+    if not str(approver or "").strip():
+        print("approve: --approver \"<your name>\" is required.", file=sys.stderr)
+        return 2
+    found = spec_from_name(root, spec) if spec else active_spec(root)[0]
+    if not found:
+        print("approve: no feature resolved. Pass --spec NNN-feature-slug.", file=sys.stderr)
+        return 2
+    fingerprint = approval_fingerprint(root, found, rule["approves"])
+    if fingerprint is None:
+        print("approve: specs/%s/%s does not exist yet, so there is nothing to approve." % (found, " and ".join(rule["approves"])), file=sys.stderr)
+        return 1
+    record = {"phase": phase, "spec": found, "approves": rule["approves"], "fingerprint": fingerprint,
+              "approver": approver.strip(), "notes": notes or None,
+              "approvedAt": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+    path = approval_path(root, found, phase)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(json.dumps(record, indent=2) + "\n")
+    os.replace(tmp, path)
+    log_finding(root, {"gate": "human-approval", "mode": "record", "where": "approve", "paths": [relative(root, path)],
+                       "message": "%s approved %s of %s" % (record["approver"], " and ".join(rule["approves"]), found)})
+    print("Recorded: %s approved %s for specs/%s/. The %s phase may start." % (
+        record["approver"], " and ".join(rule["approves"]), found, phase))
+    print("Commit %s so that CI sees the approval." % relative(root, path))
+    return 0
+
+
+def feature_phases(root, spec):
+    """-> [{phase, artifact, exists, approval, reason}] in order, for status and resume."""
+    rows = [{"phase": "specify", "artifact": "spec.md"}, {"phase": "plan", "artifact": "plan.md"},
+            {"phase": "tasks", "artifact": "tasks.md"}, {"phase": "implement", "artifact": "implementation-log.md"},
+            {"phase": "converge", "artifact": "converge-report.md"}]
+    for row in rows:
+        row["exists"] = os.path.isfile(os.path.join(root, "specs", spec, row["artifact"]))
+        if row["phase"] in approval_defs():
+            row["approval"], row["reason"] = approval_status(root, spec, row["phase"])
+    return rows
+
+
+def next_step(rows, gate_mode):
+    for row in rows:
+        gated = gate_mode != "off" and row.get("approval") in ("missing", "stale", "insufficient")
+        if not row["exists"]:
+            if gated:
+                return "a person approves before the %s phase (%s)" % (row["phase"], row["reason"])
+            return "run the %s phase" % row["phase"]
+        if gated and row["phase"] == "implement":
+            return "a person approves again before more code changes (%s)" % row["reason"]
+    return "every phase has written its artifact"
+
+
 # ------------------------------------------------------------- hook gates
 # Each gate returns a message when it has a finding, and None when it has none.
 
@@ -382,11 +506,62 @@ def gate_test_first_hook(ctx):
             "(constitution gate N1), then the code." % ctx["source"][0])
 
 
+COMMAND_TOKEN = re.compile(r"[^\s\"'<>|;&=()`]+")
+STATEMENT_SPLIT = re.compile(r"&&|\|\||[;|\n]")
+RM = re.compile(r"(?:^|[\s/\\])rm\s+(.*)$")
+# A command that puts a file's contents in the conversation. Naming a credential file in any other
+# command (echo .env >> .gitignore, git rm --cached .env, cp .env.example .env) is routine.
+READS_CONTENT = re.compile(
+    r"(?:^|[\s;(`'\"/])(?:cat|tac|less|more|head|tail|nl|bat|grep|egrep|fgrep|rg|ag|awk|sed|cut|sort|uniq|"
+    r"strings|xxd|od|hexdump|base64|jq|yq|openssl|source|python3?|node|ruby|perl|curl|wget|scp|rsync)\b"
+    r"|(?:^|\s)\.\s|<\s*\S")
+# Global options that may stand between a tool and its subcommand: git -C dir push, kubectl -n ns delete.
+GLOBAL_OPTIONS = [
+    (re.compile(r"\bgit((?:\s+(?:-[Cc]\s+\S+|--(?:git-dir|work-tree|namespace|exec-path)\s+\S+|-\S+))+)(?=\s)"), "git"),
+    (re.compile(r"\b(terraform|tofu)((?:\s+-\S+)+)(?=\s)"), None),
+    (re.compile(r"\bkubectl((?:\s+(?:-n|--namespace|--context|--cluster|-s|--server|--kubeconfig)\s+\S+|\s+-\S+)+)(?=\s)"), "kubectl"),
+]
+
+
+def normalise_statement(statement):
+    """The statement as the destructive-command rules read it: quotes dropped, and the global
+    options between a tool and its subcommand removed."""
+    out = statement.replace('"', "").replace("'", "")
+    for pattern, name in GLOBAL_OPTIONS:
+        out = pattern.sub(lambda m: name or m.group(1), out)
+    return out
+
+
+def command_words(statement):
+    """-> the words of a statement after any VAR=value, sudo, env, command or time prefix."""
+    words = statement.replace('"', " ").replace("'", " ").split()
+    while words and (re.match(r"^\w+=", words[0]) or words[0] in ("sudo", "env", "command", "time", "nohup", "exec")):
+        words = words[1:]
+    return words
+
+
 def gate_secrets_hook(ctx):
     found = []
     for rel in ctx["rels"]:
         if secret_path(rel, ctx["cfg"]):
             found.append("%s is a credential file by name" % rel)
+    # Reading a credential file puts its contents in the conversation, so a read counts too.
+    for rel in ctx["touched"]:
+        if rel not in ctx["rels"] and secret_path(rel, ctx["cfg"]):
+            found.append("%s is a credential file by name, and the tool would read it" % rel)
+    for command in ctx["commands"]:
+        reading = [st for st in STATEMENT_SPLIT.split(command) if READS_CONTENT.search(st)]
+        for token in COMMAND_TOKEN.findall("\n".join(reading)):
+            name = token[2:] if token.startswith("~/") else token
+            while name.startswith("./"):
+                name = name[2:]
+            name = name.lstrip("/")
+            if name and secret_path(name, ctx["cfg"]):
+                found.append("the command names the credential file %s" % token)
+                break
+        in_command = secret_hits(command, ctx["cfg"])
+        if in_command:
+            found.append("the command text matches: %s" % ", ".join(in_command))
     hits = []
     for rels, content in ctx["parts"]:
         # Each call's text is checked against its own path, so one allowlisted path in a batch
@@ -400,6 +575,91 @@ def gate_secrets_hook(ctx):
         return None
     return ("Possible secret or sensitive value: %s. Keep it out of the repository and read it from the "
             "environment. For a deliberate test value, add `%s` on the same line." % ("; ".join(found), PRAGMA))
+
+
+def delete_target(token):
+    """./.git/, .git/* and ".git" all name .git; / and /* both name the root."""
+    t = token.strip("\"'").rstrip("&")
+    while t.startswith("./") and len(t) > 2:
+        t = t[2:]
+    if t.endswith("/*") and len(t) > 2:
+        t = t[:-2]
+    while t.endswith("/") and len(t) > 1:
+        t = t[:-1]
+    return "." if t in ("./", "") else t
+
+
+def destructive_delete(arguments):
+    flags, targets = set(), []
+    for token in arguments.split():
+        if token.startswith("--"):
+            flags.add({"--recursive": "r", "--force": "f"}.get(token, token))
+        elif token.startswith("-") and len(token) > 1:
+            flags.update(token[1:])
+        else:
+            targets.append(delete_target(token))
+    protected = {delete_target(t) for t in DEFS.get("protectedDeleteTargets", [])}
+    return bool(flags & {"r", "R"}) and "f" in flags and any(t in protected for t in targets)
+
+
+def gate_destructive_hook(ctx):
+    allow = set(ctx["cfg"].get("destructiveAllow") or [])
+    for command in ctx["commands"]:
+        # One statement at a time, so that a harmless statement cannot excuse the one beside it.
+        for statement in STATEMENT_SPLIT.split(command):
+            m = RM.search(statement)
+            if m and "recursive-delete" not in allow and destructive_delete(m.group(1)):
+                return ("`%s` is a recursive forced delete of a protected path. Ask the person to run it "
+                        "if it is intended." % statement.strip())
+            plain = normalise_statement(statement)
+            for rule in DEFS.get("destructiveCommands", []):
+                if rule.get("id") in allow:
+                    continue
+                try:
+                    hit = re.search(rule["regex"], plain, re.IGNORECASE)
+                except (re.error, KeyError):
+                    continue
+                if hit:
+                    return ("`%s` is a %s. The assistant does not run it. Ask the person to run it "
+                            "if it is intended." % (statement.strip(), rule.get("label", rule.get("id"))))
+    return None
+
+
+def gate_approval_hook(ctx):
+    root = ctx["root"]
+    for command in ctx["commands"]:
+        if APPROVE_COMMAND.search(command):
+            return "An approval is a person's decision. Ask the person to run the approve command themselves."
+        for statement in STATEMENT_SPLIT.split(command):
+            if not APPROVAL_PATH.search(statement):
+                continue
+            words = command_words(statement)
+            first = os.path.basename(words[0]) if words else ""
+            read_only = (first in APPROVAL_READ_ONLY or (first == "git" and len(words) > 1 and words[1] in APPROVAL_READ_ONLY_GIT))
+            if not read_only or ">" in statement:
+                return ("`%s` touches an approval record. An approval is a person's decision: the assistant "
+                        "never writes one." % statement.strip())
+    needed = []  # (spec, phase, what is about to change)
+    for rel in ctx["rels"]:
+        # Compared without case: on macOS and Windows, Approvals/ is the same directory.
+        parts = rel.lower().split("/")
+        if len(parts) >= 3 and parts[0] == "specs" and SPEC_DIR.match(parts[1]):
+            if parts[2] == APPROVAL_DIR:
+                return ("%s is an approval record. An approval is a person's decision: the assistant "
+                        "never writes one." % rel)
+            if len(parts) == 3 and parts[2] == "plan.md":
+                needed.append((rel.split("/")[1], "plan", rel))
+            if len(parts) == 3 and parts[2] == "tasks.md":
+                needed.append((rel.split("/")[1], "tasks", rel))
+    if ctx["source"]:
+        spec, _ = active_spec(root)
+        if spec:
+            needed.append((spec, "implement", ctx["source"][0]))
+    for spec, phase, rel in needed:
+        status, reason = approval_status(root, spec, phase)
+        if status in ("missing", "stale", "insufficient"):
+            return "%s cannot change yet: %s (approval %s). %s" % (rel, reason, status, approve_help(spec, phase))
+    return None
 
 
 def gate_lint_hook(ctx):
@@ -427,7 +687,9 @@ def shell_quote(s):
 
 PRE_GATES = [
     ("constitution-guard", gate_constitution_hook),
+    ("destructive-commands", gate_destructive_hook),
     ("secrets-scan", gate_secrets_hook),
+    ("human-approval", gate_approval_hook),
     ("spec-before-code", gate_spec_hook),
     ("tasks-before-implement", gate_tasks_hook),
     ("test-first", gate_test_first_hook),
@@ -456,18 +718,23 @@ def run_hook(stage):
     if not isinstance(payload, dict):
         return 0
     parsed = _payload.parse(payload)
-    if not parsed["writes"] or not parsed["paths"]:
+    writes = parsed["writes"] and bool(parsed["paths"])
+    if stage == "post" and not writes:
+        return 0
+    if not (writes or parsed["commands"] or parsed["touched"]):
         return 0
 
     root = find_root(os.environ.get("CLAUDE_PROJECT_DIR") or parsed["base"])
     cfg = load_config(root)
-    rels = [r for r in (relative(root, p) for p in parsed["paths"]) if r]
-    if not rels:
+    rels = [r for r in (relative(root, p) for p in parsed["paths"]) if r] if writes else []
+    # A path outside the project is kept without its leading slash, so a name glob still matches.
+    touched = [relative(root, p) or p.lstrip("/") for p in parsed["touched"]]
+    if not (rels or parsed["commands"] or touched):
         return 0
     parts = [([r for r in (relative(root, p) for p in paths) if r], content)
              for paths, content in parsed.get("parts") or [(parsed["paths"], parsed["content"])]]
-    ctx = {"root": root, "cfg": cfg, "rels": rels, "content": parsed["content"], "parts": parts,
-           "source": [r for r in rels if classify(r, cfg) == "source"]}
+    ctx = {"root": root, "cfg": cfg, "rels": rels, "content": parsed["content"], "parts": parts, "touched": touched,
+           "commands": parsed["commands"], "source": [r for r in rels if classify(r, cfg) == "source"]}
 
     blocks, warns = [], []
     for gid, fn in (PRE_GATES if stage == "pre" else POST_GATES):
@@ -478,7 +745,7 @@ def run_hook(stage):
         if not message:
             continue
         (blocks if mode == "block" else warns).append((gid, message))
-        log_finding(root, {"gate": gid, "mode": mode, "where": "hook:" + stage, "paths": rels,
+        log_finding(root, {"gate": gid, "mode": mode, "where": "hook:" + stage, "paths": rels or touched,
                            "message": message.split("\n")[0]})
 
     is_claude = "hook_event_name" in payload
@@ -598,6 +865,15 @@ def ci_findings(root, cfg, base, head):
         leaks, scanner = gitleaks_findings(root, cfg, base, head)
         out.extend(("secrets-scan", m) for m in leaks)
 
+    if on("human-approval") and spec:
+        wanted = [phase for phase, rel in (("plan", "specs/%s/plan.md" % spec), ("tasks", "specs/%s/tasks.md" % spec))
+                  if rel in changed] + (["implement"] if source else [])
+        for phase in wanted:
+            status, reason = approval_status(root, spec, phase)
+            if status in ("missing", "stale", "insufficient"):
+                out.append(("human-approval", "The %s phase of specs/%s/ ran without a current approval: %s (%s)."
+                            % (phase, spec, reason, status)))
+
     if on("lint-format"):
         for key in ("lint", "format"):
             command = (cfg["commands"] or {}).get(key)
@@ -674,8 +950,10 @@ def run_status(as_json):
     root = find_root(os.getcwd())
     cfg = load_config(root)
     spec, how = active_spec(root)
+    phases = feature_phases(root, spec) if spec else []
+    step = next_step(phases, cfg["gates"].get("human-approval", "off")) if spec else "run the specify phase"
     if as_json:
-        print(json.dumps({"root": root, "gates": cfg["gates"], "configured": cfg["configured"], "activeSpec": spec,
+        print(json.dumps({"phases": phases, "next": step, "root": root, "gates": cfg["gates"], "configured": cfg["configured"], "activeSpec": spec,
                           "activeSpecFoundBy": how, "sourceGlobs": cfg["sourceGlobs"], "testGlobs": cfg["testGlobs"],
                           "exemptGlobs": cfg["exemptGlobs"], "commands": cfg["commands"], "industry": cfg["industry"], "gitleaks": cfg["gitleaks"],
                           "gitleaksInstalled": bool(shutil.which("gitleaks"))}, indent=2))
@@ -687,6 +965,10 @@ def run_status(as_json):
     for gid in GATE_IDS:
         print("  %-*s  %s" % (width, gid, cfg["gates"].get(gid, "off")))
     print("Active feature: %s" % ("specs/%s/ (from %s)" % (spec, how) if spec else "none"))
+    for row in phases:
+        approval = ("approval %s: %s" % (row["approval"], row["reason"])) if row.get("approval") else ""
+        print("  %-9s  %-24s %-8s %s" % (row["phase"], row["artifact"], "written" if row["exists"] else "-", approval))
+    print("Next: %s" % step)
     print("Source globs: %s" % ", ".join(cfg["sourceGlobs"]))
     print("Test globs:   %s" % ", ".join(cfg["testGlobs"]))
     print("gitleaks (CI secrets scan): %s, %s" % (cfg["gitleaks"], "installed" if shutil.which("gitleaks") else "not installed"))
@@ -703,6 +985,11 @@ def main(argv=None):
     ci.add_argument("--head", default="HEAD")
     status = sub.add_parser("status")
     status.add_argument("--json", action="store_true")
+    approve = sub.add_parser("approve", help="a person records the approval that lets a phase start")
+    approve.add_argument("phase")
+    approve.add_argument("--spec")
+    approve.add_argument("--approver")
+    approve.add_argument("--notes")
     args = ap.parse_args(argv)
 
     if args.cmd == "hook":
@@ -713,6 +1000,8 @@ def main(argv=None):
             return 0
     if args.cmd == "ci":
         return run_ci(args.base, args.head)
+    if args.cmd == "approve":
+        return run_approve(args.phase, args.spec, args.approver, args.notes)
     return run_status(args.json)
 
 

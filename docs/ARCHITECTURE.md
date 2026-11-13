@@ -20,7 +20,7 @@ subagent.** Every component here follows it.
 
 | Repo path | Primitive | Count | Role |
 |---|---|---|---|
-| `commands/speckit.*.md` | Slash commands | 13 | One per Speckit phase, plus `setup`, `onboard`, `discover` and `baseline` |
+| `commands/speckit.*.md` | Slash commands | 15 | One per Speckit phase, plus `setup`, `onboard`, `discover`, `baseline`, `status` and `taskstoissues` |
 | `agents/*.md` | Subagents | 8 | Phase specialists with pinned tiers and tool sets |
 | `skills/*/SKILL.md` | Skills | 4 | Workflow reference, RACI lookup, telemetry digest, clarity pass |
 | `hooks/hooks.json` | Lifecycle hooks | 5 | Harness gates (before and after a write), artifact changelog, tier reminder, usage line |
@@ -75,7 +75,7 @@ accidental edit from another phase. **It is not a security boundary** — anythi
 
 ## The harness gates
 
-The constitution guard is one of six gates. One runner, `scripts/harness/gate.py`, checks all of
+The constitution guard is one of eight gates. One runner, `scripts/harness/gate.py`, checks all of
 them in two places: in the assistant's hooks before and after a write, and in CI against the pull
 request diff. `scripts/harness/gates.json` is the single definition, and the installer, the
 onboarding script and the runner all read it.

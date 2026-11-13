@@ -153,7 +153,7 @@ payment test suites use. See [HARNESS.md](HARNESS.md#the-harness-block) for the 
 | Converge | Checks every `G-XX-n` against the shipped code. |
 
 The constitution gates `G-XX-n` are rules for people and for the phases. They are not harness
-gates: no hook checks them. The six harness gates are in [HARNESS.md](HARNESS.md).
+gates: no hook checks them. The eight harness gates are in [HARNESS.md](HARNESS.md).
 
 ## Tailor a profile
 

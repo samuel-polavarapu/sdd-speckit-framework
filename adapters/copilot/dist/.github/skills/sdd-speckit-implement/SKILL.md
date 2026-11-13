@@ -52,14 +52,29 @@ Delegate to the **implementer** custom agent. Use **code-reviewer** after each p
    can switch the model for you.
 6. When the plan and the code disagree, stop and say so. The plan is wrong, or your reading is.
    Do not silently diverge. Record an accepted deviation in `implementation-log.md`.
-7. **When a harness gate stops a write, fix the cause.** The message names what is missing: a
+7. **Finish with the coverage report.** Run the test command with coverage so that it writes a
+   Cobertura or JaCoCo XML file, then generate the report. Never write it by hand.
+
+   ```bash
+   python3 .specify/sdd-speckit/scripts/coverage-report.py --xml <coverage xml> \
+     --out specs/<NNN>-<slug>/coverage-report.md --feature <NNN>-<slug> \
+     --command "<the test command>" --tests "<the result line>"
+   ```
+
+   The threshold is `harness.coverageThreshold` in `.specify/sdd-speckit.json`. Exit code 1
+   means coverage is below it: add the missing tests, or report the gap. Do not lower the
+   threshold.
+8. **Never record an approval.** When the `human-approval` gate stops a write, show the person
+   the command from its message and wait. Do not run it, and do not write under `approvals/`.
+9. **When a harness gate stops a write, fix the cause.** The message names what is missing: a
    spec, a plan, a task list, a test, or a value that looks like a secret. Do not write the file
    through the shell to avoid the gate, and do not change a gate mode. Only a person does that.
 
 ## Write to
 
 Source files per `tasks.md`, plus ticked checkboxes in `specs/<NNN>-<slug>/tasks.md`, rows in
-`specs/<NNN>-<slug>/implementation-log.md`, and `.specify/.active-spec`.
+`specs/<NNN>-<slug>/implementation-log.md`, `specs/<NNN>-<slug>/coverage-report.md` (generated), and
+`.specify/.active-spec`.
 
 Never write `.specify/memory/constitution.md`. A hook blocks it.
 
@@ -67,6 +82,7 @@ Never write `.specify/memory/constitution.md`. A hook blocks it.
 
 - Tasks completed, with ids, and what remains.
 - Test result: passed, failed, skipped.
+- Coverage: the line rate and the gate result from `coverage-report.md`, or "Not recorded".
 - Every deviation from the plan, and why.
 - Anything you escalated or want reviewed by a human.
 

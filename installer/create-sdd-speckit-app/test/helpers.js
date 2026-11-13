@@ -43,6 +43,7 @@ export function mdFiles(dir) {
 
 export const COMPOSE = join(ROOT, "scripts", "compose-templates.py");
 export const ONBOARD = join(ROOT, "scripts", "onboard-project.py");
+export const COVERAGE = join(ROOT, "scripts", "coverage-report.py");
 export const GATE = join(ROOT, "scripts", "harness", "gate.py");
 
 export function have(cmd, args = ["--version"]) {

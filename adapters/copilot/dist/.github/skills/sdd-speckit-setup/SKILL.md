@@ -89,8 +89,8 @@ Single-select: **VS Code** (default) · **JetBrains** (IntelliJ IDEA, PyCharm, W
 
 ### 8. Harness gates
 
-Show the six gates from `gates.json` with the current mode of each: `constitution-guard`,
-`spec-before-code`, `tasks-before-implement`, `test-first`, `secrets-scan`, `lint-format`. Offer:
+Show the gates from `gates.json` with the current mode of each: `constitution-guard`,
+`spec-before-code`, `tasks-before-implement`, `test-first`, `secrets-scan`, `lint-format`, `destructive-commands`, `human-approval`. Offer:
 
 - **Defaults for the mode** — greenfield: every gate at `block`. Brownfield: `warn`, except
   `constitution-guard` and `secrets-scan`, which stay at `block`.

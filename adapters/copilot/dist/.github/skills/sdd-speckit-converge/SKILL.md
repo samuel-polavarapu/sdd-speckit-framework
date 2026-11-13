@@ -43,7 +43,12 @@ Delegate to **qa-analyst** for the assessment and **code-reviewer** for the code
    which you think it is.
 3. Check the constitution gates against the shipped state, not the intended state. Include
    every profile gate `G-<XX>-n`.
-4. Append gap-filling tasks to `tasks.md` as a new `## Phase 6 — Convergence` section. Keep ids
+4. Check the standard deliverables. Each one that is missing or stale is a gap:
+   - `contracts/openapi.json` for a service with an HTTP interface, matching the routes in the code.
+   - `architecture.md` and `deployment.md`, each element matching the code.
+   - `coverage-report.md`, generated after the last source change, with its gate at PASS.
+   - A `sast` checklist with no unresolved critical finding, when `checklistKinds` lists `sast`.
+5. Append gap-filling tasks to `tasks.md` as a new `## Phase 6 — Convergence` section. Keep ids
    append-only, continuing from the highest existing id. Tests before fixes, as always.
 
 ## Write to

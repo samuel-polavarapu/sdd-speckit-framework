@@ -1,8 +1,16 @@
 {
   "$comment": "The one definition of the harness gates. Read by scripts/harness/gate.py, scripts/onboard-project.py and installer/create-sdd-speckit-app/src/config-schema.js. Reference: docs/HARNESS.md.",
   "schema": 1,
-  "modes": ["off", "warn", "block"],
-  "gitleaksModes": ["auto", "off", "required"],
+  "modes": [
+    "off",
+    "warn",
+    "block"
+  ],
+  "gitleaksModes": [
+    "auto",
+    "off",
+    "required"
+  ],
   "gates": [
     {
       "id": "constitution-guard",
@@ -33,6 +41,16 @@
       "id": "lint-format",
       "label": "Lint and format",
       "description": "The project's lint and format commands pass."
+    },
+    {
+      "id": "destructive-commands",
+      "label": "Destructive commands",
+      "description": "The assistant does not run a force push, a hard reset, a recursive delete of a protected path, a SQL DROP or an infrastructure apply or delete. A person runs those."
+    },
+    {
+      "id": "human-approval",
+      "label": "Human approval",
+      "description": "The plan, the tasks and the code each start only after a person approved the artifact before them. An approval goes stale when that artifact changes."
     }
   ],
   "defaults": {
@@ -42,7 +60,9 @@
       "tasks-before-implement": "block",
       "test-first": "block",
       "secrets-scan": "block",
-      "lint-format": "block"
+      "lint-format": "block",
+      "destructive-commands": "block",
+      "human-approval": "block"
     },
     "brownfield": {
       "constitution-guard": "block",
@@ -50,7 +70,9 @@
       "tasks-before-implement": "warn",
       "test-first": "warn",
       "secrets-scan": "block",
-      "lint-format": "warn"
+      "lint-format": "warn",
+      "destructive-commands": "block",
+      "human-approval": "warn"
     },
     "migrated": {
       "constitution-guard": "block",
@@ -58,27 +80,95 @@
       "tasks-before-implement": "off",
       "test-first": "off",
       "secrets-scan": "off",
-      "lint-format": "off"
+      "lint-format": "off",
+      "destructive-commands": "off",
+      "human-approval": "off"
     }
   },
   "globs": {
-    "source": ["src/**", "app/**", "lib/**"],
-    "test": ["tests/**", "test/**", "**/*.test.*", "**/*.spec.*", "**/test_*.py", "**/*_test.py", "**/*_test.go", "**/*Tests.cs"],
-    "exempt": ["**/*.md", "docs/**", ".github/**", ".specify/**", "specs/**", ".claude/**", ".vscode/**", ".idea/**"]
+    "source": [
+      "src/**",
+      "app/**",
+      "lib/**"
+    ],
+    "test": [
+      "tests/**",
+      "test/**",
+      "**/*.test.*",
+      "**/*.spec.*",
+      "**/test_*.py",
+      "**/*_test.py",
+      "**/*_test.go",
+      "**/*Tests.cs"
+    ],
+    "exempt": [
+      "**/*.md",
+      "docs/**",
+      ".github/**",
+      ".specify/**",
+      "specs/**",
+      ".claude/**",
+      ".vscode/**",
+      ".idea/**"
+    ]
   },
-  "secretPaths": [".env", ".env.*", "**/*.pem", "**/*.p12", "**/*.pfx", "**/id_rsa", "**/id_ed25519", "**/credentials.json", "secrets/**"],
-  "secretPathsAllowed": [".env.example", ".env.sample", ".env.template"],
+  "secretPaths": [
+    ".env",
+    ".env.*",
+    "**/*.pem",
+    "**/*.p12",
+    "**/*.pfx",
+    "**/id_rsa",
+    "**/id_ed25519",
+    "**/credentials.json",
+    "secrets/**"
+  ],
+  "secretPathsAllowed": [
+    ".env.example",
+    ".env.sample",
+    ".env.template"
+  ],
   "secretPatterns": [
-    { "id": "private-key", "regex": "-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----" },
-    { "id": "aws-access-key-id", "regex": "\\b(?:AKIA|ASIA)[0-9A-Z]{16}\\b" },
-    { "id": "github-token", "regex": "\\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,}\\b|\\bgithub_pat_[A-Za-z0-9_]{60,}\\b" },
-    { "id": "slack-token", "regex": "\\bxox[abprs]-[A-Za-z0-9-]{10,}\\b" },
-    { "id": "stripe-live-key", "regex": "\\b[sr]k_live_[A-Za-z0-9]{20,}\\b" },
-    { "id": "google-api-key", "regex": "\\bAIza[0-9A-Za-z_-]{35}\\b" },
-    { "id": "anthropic-api-key", "regex": "\\bsk-ant-[A-Za-z0-9_-]{20,}\\b" },
-    { "id": "jwt", "regex": "\\beyJ[A-Za-z0-9_-]{10,}\\.eyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\b" },
-    { "id": "connection-string-password", "regex": "\\b[a-z][a-z0-9+.-]*://[^\\s:/@]+:[^\\s:/@${}<>\\[\\]]{6,}@[^\\s/]+" },
-    { "id": "assigned-secret", "regex": "(?i)\\b(?:password|passwd|secret|api[_-]?key|access[_-]?token|client[_-]?secret)\\b[\"']?\\s*[:=]\\s*[\"'][^\"'\\s${}<>\\[\\]]{12,}[\"']" }
+    {
+      "id": "private-key",
+      "regex": "-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----"
+    },
+    {
+      "id": "aws-access-key-id",
+      "regex": "\\b(?:AKIA|ASIA)[0-9A-Z]{16}\\b"
+    },
+    {
+      "id": "github-token",
+      "regex": "\\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,}\\b|\\bgithub_pat_[A-Za-z0-9_]{60,}\\b"
+    },
+    {
+      "id": "slack-token",
+      "regex": "\\bxox[abprs]-[A-Za-z0-9-]{10,}\\b"
+    },
+    {
+      "id": "stripe-live-key",
+      "regex": "\\b[sr]k_live_[A-Za-z0-9]{20,}\\b"
+    },
+    {
+      "id": "google-api-key",
+      "regex": "\\bAIza[0-9A-Za-z_-]{35}\\b"
+    },
+    {
+      "id": "anthropic-api-key",
+      "regex": "\\bsk-ant-[A-Za-z0-9_-]{20,}\\b"
+    },
+    {
+      "id": "jwt",
+      "regex": "\\beyJ[A-Za-z0-9_-]{10,}\\.eyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\b"
+    },
+    {
+      "id": "connection-string-password",
+      "regex": "\\b[a-z][a-z0-9+.-]*://[^\\s:/@]+:[^\\s:/@${}<>\\[\\]]{6,}@[^\\s/]+"
+    },
+    {
+      "id": "assigned-secret",
+      "regex": "(?i)\\b(?:password|passwd|secret|api[_-]?key|access[_-]?token|client[_-]?secret)\\b[\"']?\\s*[:=]\\s*[\"'][^\"'\\s${}<>\\[\\]]{12,}[\"']"
+    }
   ],
   "permissions": {
     "$comment": "Baseline Claude Code permission rules merged into .claude/settings.json. A stack profile adds its own allow rules. The constitution is not denied here: a deny rule would break the unlock-marker flow.",
@@ -103,5 +193,87 @@
       "Bash(git push -f:*)",
       "Bash(rm -rf /:*)"
     ]
-  }
+  },
+  "destructiveCommands": [
+    {
+      "id": "force-push",
+      "label": "force push or remote branch deletion",
+      "regex": "\\bgit\\s+push\\b.*?\\s(?:--force(?![-\\w])|--mirror\\b|--delete\\b|-[a-zA-Z]*f[a-zA-Z]*\\b|\\+\\S+|:\\S+)"
+    },
+    {
+      "id": "hard-reset",
+      "label": "git reset --hard",
+      "regex": "\\bgit\\s+reset\\b.*\\s--hard\\b"
+    },
+    {
+      "id": "git-clean",
+      "label": "git clean of untracked files",
+      "regex": "\\bgit\\s+clean\\b[^\\n]*\\s-[a-zA-Z]*f"
+    },
+    {
+      "id": "sql-drop",
+      "label": "SQL DROP or TRUNCATE",
+      "regex": "\\b(?:DROP\\s+(?:DATABASE|SCHEMA|TABLE)|TRUNCATE\\s+TABLE)\\b"
+    },
+    {
+      "id": "iac-apply",
+      "label": "infrastructure apply or destroy",
+      "regex": "\\b(?:terraform|tofu)\\s+(?:apply|destroy)\\b|\\bpulumi\\s+(?:up|destroy)\\b|\\bcdk\\s+(?:deploy|destroy)\\b"
+    },
+    {
+      "id": "cloud-delete",
+      "label": "cloud resource deletion",
+      "regex": "\\baws\\s+cloudformation\\s+delete-stack\\b|\\baws\\s+s3\\s+rb\\b|\\baz\\s+group\\s+delete\\b|\\bgcloud\\s+\\S+(?:\\s+\\S+)*\\s+delete\\b"
+    },
+    {
+      "id": "cluster-delete",
+      "label": "cluster resource deletion",
+      "regex": "\\bkubectl\\s+delete\\b|\\bhelm\\s+uninstall\\b"
+    }
+  ],
+  "protectedDeleteTargets": [
+    "/",
+    "/*",
+    "~",
+    "~/",
+    "~/*",
+    "$HOME",
+    "${HOME}",
+    "$HOME/",
+    "$PWD",
+    "${PWD}",
+    ".",
+    "./",
+    "..",
+    "*",
+    ".git",
+    ".git/",
+    ".specify",
+    ".specify/",
+    "specs",
+    "specs/"
+  ],
+  "approvals": [
+    {
+      "phase": "plan",
+      "approves": [
+        "spec.md"
+      ],
+      "before": "the plan is written"
+    },
+    {
+      "phase": "tasks",
+      "approves": [
+        "plan.md"
+      ],
+      "before": "the tasks are written"
+    },
+    {
+      "phase": "implement",
+      "approves": [
+        "tasks.md"
+      ],
+      "before": "source code changes"
+    }
+  ]
 }
