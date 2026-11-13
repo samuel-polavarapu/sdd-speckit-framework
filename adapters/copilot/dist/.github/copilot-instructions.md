@@ -27,7 +27,7 @@ constitution → specify → clarify → plan → checklist → tasks → analyz
 - **Never edit `.specify/memory/constitution.md` directly.** Amend it with `/sdd-speckit-constitution`. A `preToolUse` hook (`.github/hooks/sdd-speckit.json`) blocks other writes. It guards against accidents. It is not a security boundary.
 - **`/sdd-speckit-analyze` is read-only.** It produces a report and changes nothing.
 - When a phase skill names a custom agent, run the work in that agent as a subagent. It pins the model tier and the tool set.
-- Templates are in `.specify/sdd-speckit/templates/`. A stack preset override in `.specify/templates/overrides/` wins over the base template.
+- Templates are in `.specify/sdd-speckit/templates/`. A composed template in `.specify/templates/overrides/` (base + industry profile + stack profile) wins over the base template.
 - The project's framework choices (stack, assistants, MCP connectors, editor) are recorded in `.specify/sdd-speckit.json`.
 - Requirements go in `spec.md` and say what and why, never how. Technology choices go in `plan.md`, each with the alternative it rejected.
 - Write tests before the implementation they cover.

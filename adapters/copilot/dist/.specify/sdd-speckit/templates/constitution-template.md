@@ -37,6 +37,7 @@
 
 **In practice:** [What a reviewer looks for.]
 
+<!-- slot:principles -->
 ## Article II — Non-negotiables
 
 These are gates. A change that fails a gate does not merge.
@@ -48,6 +49,7 @@ These are gates. A change that fails a gate does not merge.
 | N3 | Agent output is reviewed | No AI-authored change merges without a named human reviewer. | PR approval record |
 | N4 | Clarify before build | Every `[NEEDS CLARIFICATION]` marker is resolved before `/sdd-speckit-tasks`. | `/sdd-speckit-clarify` |
 | N5 | [PLACEHOLDER: org gate] | [Rule.] | [How it is checked.] |
+<!-- slot:gates-rows -->
 
 **Escape hatch.** A gate is waived only by [ROLE], in writing, in the PR description, with an
 expiry date. Record every waiver in Article V.
@@ -59,6 +61,7 @@ expiry date. Record every waiver in Article V.
 - **Accessibility:** [PLACEHOLDER: standard and conformance level]
 - **Security:** [PLACEHOLDER: scanning, dependency policy, secret handling]
 - **Observability:** [PLACEHOLDER: what every service must emit]
+<!-- slot:quality-bar-items -->
 
 ## Article IV — Governance
 
@@ -71,6 +74,7 @@ expiry date. Record every waiver in Article V.
 - **Review cadence:** [PLACEHOLDER: e.g. every quarter]
 - **Precedence:** This document outranks every other project document. Where a plan and this
   document disagree, this document wins, and the plan is corrected.
+<!-- slot:governance-items -->
 
 ## Article V — Amendment log
 
@@ -82,3 +86,5 @@ expiry date. Record every waiver in Article V.
 
 [Add articles your organization requires: data residency, licensing, procurement, regulatory
 controls. Delete this article if you need none.]
+
+<!-- slot:annexes -->

@@ -1,0 +1,14 @@
+{
+  "$comment": "Project-level artifacts composed by scripts/compose-templates.py. Phase templates need no entry: one is written to .specify/templates/overrides/ when a profile overlays it. ifExists: merge-block = keep the file, replace only the marked block; replace-if-composed = overwrite only a file this composer wrote; skip = write once, never again.",
+  "schema": 1,
+  "project": [
+    { "template": "project/AGENTS.md", "output": "AGENTS.md", "ifExists": "merge-block" },
+    { "template": "project/CLAUDE.md", "output": "CLAUDE.md", "ifExists": "merge-block", "when": { "target": "claude" } },
+    { "template": "project/sdd-gates.yml", "output": ".github/workflows/sdd-gates.yml", "ifExists": "replace-if-composed" },
+    { "template": "project/pull_request_template.md", "output": ".github/pull_request_template.md", "ifExists": "replace-if-composed" },
+    { "template": "project/ISSUE_TEMPLATE/feature.md", "output": ".github/ISSUE_TEMPLATE/feature.md", "ifExists": "replace-if-composed" },
+    { "template": "project/ISSUE_TEMPLATE/bug.md", "output": ".github/ISSUE_TEMPLATE/bug.md", "ifExists": "replace-if-composed" },
+    { "template": "project/CODEOWNERS", "output": ".github/CODEOWNERS", "ifExists": "skip" },
+    { "template": "project/adr-0000-record-decisions.md", "output": "docs/adr/0000-record-architecture-decisions.md", "ifExists": "skip" }
+  ]
+}

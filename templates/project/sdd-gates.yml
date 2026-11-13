@@ -1,0 +1,27 @@
+name: sdd-gates
+
+# The same gates the assistant hooks run, applied to the whole pull request.
+# Modes (off, warn, block) come from .specify/sdd-speckit.json. Reference: docs/HARNESS.md in
+# the sdd-speckit framework.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the gates read the commits of the pull request
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+# slot:stack-setup
+      - name: Composed templates are current
+        run: python3 .specify/sdd-speckit/scripts/compose-templates.py --project . --check
+      - name: SDD gates
+        run: python3 .specify/sdd-speckit/scripts/harness/gate.py ci --base "origin/${{ github.base_ref }}"

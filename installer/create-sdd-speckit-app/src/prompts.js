@@ -1,17 +1,20 @@
 /**
- * The five required questions, in order:
- *   1 telemetry  2 tech stack  3 primary assistant  4 MCP connectors  5 code editor
+ * The eight required questions, in order:
+ *   1 telemetry  2 project mode  3 industry  4 tech stack  5 primary assistant
+ *   6 MCP connectors  7 code editor  8 harness gates
  *
- * Nothing here touches the filesystem. The caller scaffolds only after all five return.
+ * Nothing here touches the filesystem. The caller scaffolds only after all eight return.
  *
  * Uses @clack/prompts when it is installed, and falls back to node:readline otherwise, so the
  * installer runs from a bare checkout with no npm install.
  */
 import { createInterface } from "node:readline";
 import { stdin, stdout } from "node:process";
-import { presetChoices } from "./presets-map.js";
+import { findProfile, industryChoices, stackChoices } from "./profiles-map.js";
 import { catalogChoices, connectorsNeedingInput, findConnector } from "./mcp-map.js";
-import { ASSISTANTS, BOTH, EXPORTERS, normalizeAssistant, validateCustomMcp } from "./config-schema.js";
+import {
+  ASSISTANTS, BOTH, EXPORTERS, GATES, GATE_MODES, gateDefaults, normalizeAssistant, validateCustomMcp,
+} from "./config-schema.js";
 
 let clack = null;
 try {
@@ -153,7 +156,7 @@ export function makeUi() {
 
 export const promptBackend = clack ? "@clack/prompts" : "readline";
 
-/* ------------------------------------------------------- the five questions */
+/* ------------------------------------------------------ the eight questions */
 
 export async function askTelemetry(ui, current) {
   const enabled = await ui.confirm({
@@ -186,12 +189,62 @@ export async function askTelemetry(ui, current) {
   return { enabled: true, exporter, endpoint };
 }
 
-export async function askStack(ui, frameworkRoot, current) {
+/** `scan` is the brief repository scan, or null. It only sets which option starts selected. */
+export async function askMode(ui, current, scan) {
+  if (scan?.mode === "brownfield") ui.note(scan.modeReasons.join("\n"), "This directory already holds code");
   return ui.select({
-    message: "Which tech stack?",
-    initialValue: current ?? "custom",
-    options: presetChoices(frameworkRoot),
+    message: "Is this a new project or an existing codebase?",
+    initialValue: current ?? scan?.mode ?? "greenfield",
+    options: [
+      { value: "greenfield", label: "Greenfield — new project", hint: "Gates start at block: spec, plan and tasks come before code" },
+      { value: "brownfield", label: "Brownfield — existing codebase", hint: "Gates start at warn. Discovery, a derived constitution and baseline specs come first" },
+    ],
   });
+}
+
+export async function askIndustry(ui, frameworkRoot, current) {
+  return ui.select({
+    message: "Which industry or domain? It adds that domain's standards to the constitution, spec, plan, tasks and checklists.",
+    initialValue: current ?? "none",
+    options: industryChoices(frameworkRoot),
+  });
+}
+
+export async function askStack(ui, frameworkRoot, current, scan) {
+  const options = stackChoices(frameworkRoot);
+  const suggested = options.some((o) => o.value === scan?.stack) ? scan.stack : null;
+  return ui.select({
+    message: "Which tech stack?" + (suggested && suggested !== "custom" ? ` (detected: ${suggested})` : ""),
+    initialValue: current && current !== "custom" ? current : suggested ?? current ?? "custom",
+    options,
+  });
+}
+
+export async function askHarness(ui, mode, current) {
+  const defaults = gateDefaults(mode);
+  const summary = GATES.map((g) => `${g.id}=${defaults[g.id]}`).join("  ");
+  const choice = await ui.select({
+    message: "How strict should the harness gates be? They run in the assistant hooks and in CI.",
+    initialValue: "default",
+    options: [
+      { value: "default", label: `Use the ${mode} defaults`, hint: summary },
+      { value: "custom", label: "Choose each gate", hint: "off, warn or block, gate by gate" },
+      { value: "warn", label: "All warn", hint: "Report every finding, block nothing" },
+      { value: "off", label: "All off", hint: "No gates. You can turn them on later with /speckit.setup" },
+    ],
+  });
+  if (choice === "default") return { gates: defaults };
+  if (choice !== "custom") return { gates: Object.fromEntries(GATES.map((g) => [g.id, choice])) };
+
+  const gates = {};
+  for (const g of GATES) {
+    gates[g.id] = await ui.select({
+      message: `${g.label} — ${g.description}`,
+      initialValue: current?.gates?.[g.id] ?? defaults[g.id],
+      options: GATE_MODES.map((m) => ({ value: m, label: m })),
+    });
+  }
+  return { gates };
 }
 
 export async function askAssistant(ui, current) {
@@ -221,7 +274,9 @@ export async function askAssistant(ui, current) {
   return normalizeAssistant({ primary, secondary });
 }
 
-export async function askMcp(ui, frameworkRoot, current) {
+export async function askMcp(ui, frameworkRoot, current, stack) {
+  const suggested = findProfile(frameworkRoot, "stack", stack)?.recommendedMcp ?? [];
+  if (suggested.length) ui.note(suggested.join(", "), `Connectors the ${stack} stack profile suggests`);
   const catalog = await ui.multiselect({
     message: "Which MCP connectors? (optional — you can add more later with /speckit.setup)",
     options: catalogChoices(frameworkRoot),
@@ -322,12 +377,15 @@ export async function askEditor(ui, current) {
   });
 }
 
-/** Runs all five, in order. Returns a complete config, or throws Cancelled. */
-export async function askAll(ui, frameworkRoot, current = {}) {
+/** Runs all eight, in order. Returns a complete config, or throws Cancelled. */
+export async function askAll(ui, frameworkRoot, current = {}, { scan = null } = {}) {
   const telemetry = await askTelemetry(ui, current.telemetry);
-  const stack = await askStack(ui, frameworkRoot, current.stack);
+  const mode = await askMode(ui, current.mode, scan);
+  const industry = await askIndustry(ui, frameworkRoot, current.industry);
+  const stack = await askStack(ui, frameworkRoot, current.stack, scan);
   const assistant = await askAssistant(ui, current.assistant);
-  const mcp = await askMcp(ui, frameworkRoot, current.mcp);
+  const mcp = await askMcp(ui, frameworkRoot, current.mcp, stack);
   const editor = await askEditor(ui, current.editor);
-  return { telemetry, stack, assistant, mcp, editor };
+  const harness = await askHarness(ui, mode, current.harness);
+  return { telemetry, mode, industry, stack, assistant, mcp, editor, harness };
 }

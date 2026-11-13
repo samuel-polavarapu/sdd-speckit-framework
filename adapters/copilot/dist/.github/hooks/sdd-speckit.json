@@ -4,9 +4,9 @@
     "preToolUse": [
       {
         "type": "command",
-        "bash": "sh .specify/sdd-speckit/scripts/hooks/guard-constitution.sh",
+        "bash": "sh .specify/sdd-speckit/scripts/harness/hook.sh pre",
         "cwd": ".",
-        "timeoutSec": 10
+        "timeoutSec": 15
       }
     ],
     "postToolUse": [
@@ -15,6 +15,12 @@
         "bash": "sh .specify/sdd-speckit/scripts/hooks/log-artifact-change.sh",
         "cwd": ".",
         "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "bash": "sh .specify/sdd-speckit/scripts/harness/hook.sh post",
+        "cwd": ".",
+        "timeoutSec": 30
       }
     ]
   }
