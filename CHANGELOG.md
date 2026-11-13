@@ -47,7 +47,9 @@ codebases, and a harness of deterministic gates.
 - **Stack `recommendedMcp` is pre-selected** in the MCP question of both installers.
 - **`checklistKinds`** from the industry profile is recorded in `.specify/sdd-speckit.json`, and
   the checklist phase offers the kinds a feature still lacks.
-- **Tests.** A `node:test` suite (`npm test`, 44 tests): frontmatter, config migration, scaffold,
+- **Batched Copilot payloads.** The hooks now read the `{"toolCalls": [...]}` shape the Copilot
+  CLI can send. Before, a batched call passed every gate unchecked.
+- **Tests.** A `node:test` suite (`npm test`, 45 tests): frontmatter, config migration, scaffold,
   composer, gate runner, and parity between the two installers.
 
 ### Changed

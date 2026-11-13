@@ -9,6 +9,11 @@ It accepts every payload shape the framework's hooks receive:
   Claude Code             {"tool_name": "Write", "tool_input": {"file_path": ...}}
   Copilot (PascalCase)    {"tool_name": ..., "tool_input": {...}, "cwd": ...}
   Copilot (camelCase)     {"toolName": "edit", "toolArgs": "{\"path\": ...}", "cwd": ...}
+  Copilot CLI (batched)   {"toolCalls": [{"name": "edit", "args": {...}}, ...], "cwd": ...}
+
+A batched payload is read as the union of its calls: it writes when any call writes, and it
+carries every call's paths and content. A hook that read only the single-call fields would see
+nothing in a batch and let every call through.
 
 toolArgs can arrive as a JSON-encoded string or as an object. Both are handled.
 A parse failure prints "0" and no path, so a hook never blocks on a payload it cannot read.
@@ -33,6 +38,26 @@ def _added_patch_lines(text):
 
 
 def parse(d):
+    """Like parse_one, and it also expands a batched {"toolCalls": [...]} payload."""
+    batch = d.get("toolCalls")
+    if not isinstance(batch, list):
+        return parse_one(d)
+    singles = [{"tool_name": c.get("name") or c.get("toolName") or "",
+                "tool_input": c.get("args", c.get("arguments", c.get("toolArgs"))),
+                "cwd": d.get("cwd")} for c in batch if isinstance(c, dict)]
+    if d.get("toolName") or d.get("tool_name"):
+        singles.append(d)
+    parsed = [parse_one(s) for s in singles]
+    writers = [p for p in parsed if p["writes"]]
+    paths = []
+    for p in writers:
+        paths += [x for x in p["paths"] if x not in paths]
+    return {"writes": bool(writers), "paths": paths, "tool": ",".join(p["tool"] for p in writers),
+            "content": "\n".join(p["content"] for p in writers if p["content"]),
+            "base": d.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()}
+
+
+def parse_one(d):
     """-> {"writes": bool, "paths": [absolute path], "tool": str, "content": str, "base": str}.
 
     content is the text the tool is about to write, as far as the payload shows it: the whole

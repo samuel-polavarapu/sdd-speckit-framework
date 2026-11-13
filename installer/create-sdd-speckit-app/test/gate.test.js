@@ -209,3 +209,17 @@ test("ci: gitleaks set to required fails when the binary is missing", { skip: sk
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.match(r.stdout, /gitleaks is required/);
 });
+
+test("a batched Copilot payload is checked call by call, not waved through", { skip }, () => {
+  const dir = project("--mode", "greenfield");
+  const payload = { cwd: dir, toolCalls: [
+    { name: "view", args: { path: "README.md" } },
+    { name: "create", args: JSON.stringify({ path: "src/orders.py", content: "x = 1\n" }) },
+  ] };
+  const env = { ...process.env, CLAUDE_PROJECT_DIR: dir, GITHUB_HEAD_REF: "" };
+  const r = py(GATE, ["hook", "pre"], { input: JSON.stringify(payload), cwd: dir, env });
+  assert.equal(r.status, 2, r.stdout + r.stderr);
+  assert.match(r.stderr, /spec-before-code/);
+  const readOnly = { cwd: dir, toolCalls: [{ name: "view", args: { path: "src/orders.py" } }] };
+  assert.equal(py(GATE, ["hook", "pre"], { input: JSON.stringify(readOnly), cwd: dir, env }).status, 0);
+});
