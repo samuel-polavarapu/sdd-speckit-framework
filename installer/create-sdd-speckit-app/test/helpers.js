@@ -40,3 +40,28 @@ export function snapshot(dir, skip = []) {
 export function mdFiles(dir) {
   return readdirSync(dir).filter((f) => f.endsWith(".md") && statSync(join(dir, f)).isFile()).sort();
 }
+
+export const COMPOSE = join(ROOT, "scripts", "compose-templates.py");
+export const ONBOARD = join(ROOT, "scripts", "onboard-project.py");
+export const GATE = join(ROOT, "scripts", "harness", "gate.py");
+
+export function have(cmd, args = ["--version"]) {
+  try {
+    return spawnSync(cmd, args, { stdio: "ignore", timeout: 15000 }).status === 0;
+  } catch {
+    return false;
+  }
+}
+
+export function py(script, args = [], opts = {}) {
+  return spawnSync("python3", [script, ...args], { encoding: "utf8", ...opts });
+}
+
+export function git(dir, ...args) {
+  const r = spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.invalid", "-c", "commit.gpgsign=false", ...args], {
+    cwd: dir,
+    encoding: "utf8",
+  });
+  if (r.status !== 0) throw new Error(`git ${args.join(" ")}: ${r.stderr}`);
+  return r.stdout.trim();
+}

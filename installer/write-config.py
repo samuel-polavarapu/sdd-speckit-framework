@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
 Writes .mcp.json, .claude/settings.json, .specify/sdd-speckit.json, the editor files and (for a
-GitHub Copilot target) the pre-rendered Copilot files for install.sh. It exists so the bash path shares the framework's own JSON metadata instead of
-rewriting JSON with sed.
+GitHub Copilot target) the pre-rendered Copilot files for install.sh. It exists so the bash path
+shares the framework's own JSON metadata instead of rewriting JSON with sed. Its last step runs
+scripts/onboard-project.py, the same script the Node installer runs, which pins the support
+files, composes the templates for the industry and stack, and wires the harness gates.
 
 The Node installer (installer/create-sdd-speckit-app) is the reference implementation. Keep this
 in step with src/scaffold.js.
@@ -12,6 +14,7 @@ Every value arrives through the environment, so nothing here parses flags.
 import json
 import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -23,6 +26,10 @@ TELEMETRY = os.environ.get("TELEMETRY", "off") == "on"
 EXPORTER = os.environ.get("OTEL_EXPORTER", "console")
 ENDPOINT = os.environ.get("OTEL_ENDPOINT", "")
 STACK = os.environ.get("STACK", "custom")
+MODE = os.environ.get("MODE", "")  # empty: keep what the record holds
+INDUSTRY = os.environ.get("INDUSTRY", "none")
+GATES = os.environ.get("GATES", "")
+GATE = [s for s in os.environ.get("GATE_JOINED", "").split("|") if s]
 ASSISTANT = os.environ.get("ASSISTANT", "claude")
 SECONDARY = [s for s in os.environ.get("SECONDARY", "").replace(" ", "").split(",") if s]
 if ASSISTANT == "both":  # same normalization as config-schema.js normalizeAssistant()
@@ -205,7 +212,7 @@ else:
     if entry.get("mergesAssistantExtensions"):
         extras += [x for a in assistants for x in a.get("vscodeExtensions", [])]
     if entry.get("mergesPresetExtensions"):
-        extras += read_json(ROOT / "presets" / STACK / "vscode-extensions.json", {}).get("recommendations", [])
+        extras += read_json(ROOT / "profiles" / "stacks" / STACK / "vscode-extensions.json", {}).get("recommendations", [])
 
     for c in entry["copy"]:
         src = ROOT / c["from"]
@@ -287,20 +294,51 @@ if TARGET_COPILOT:
         print(f"  {'would: copy' if DRY else '- copied'} {count} GitHub Copilot files from adapters/copilot/dist/")
 
 # ------------------------------------------------------- config record
+# The installer's answers. Anything else already in the record is kept: the harness globs and
+# commands a team has tuned, and any key a later version adds. Mode, industry, stack and the gate
+# modes are settled by onboard-project.py below, as in src/scaffold.js.
 
-write_json(
-    TARGET / ".specify" / "sdd-speckit.json",
-    {
-        "configVersion": 2,
-        "generatedBy": "install.sh",
-        "telemetry": {"enabled": TELEMETRY, "exporter": EXPORTER, "endpoint": ENDPOINT},
-        "stack": STACK,
-        "assistant": {"primary": ASSISTANT, "secondary": SECONDARY, "targets": TARGETS, "speckitIntegration": INTEGRATION},
-        "mcp": {"catalog": MCP_IDS, "custom": CUSTOM},
-        "editor": EDITOR,
-    },
-    ".specify/sdd-speckit.json",
-)
+record_path = TARGET / ".specify" / "sdd-speckit.json"
+existing = read_json(record_path, {})
+custom_ids = {c["id"] for c in CUSTOM}
+old_mcp = existing.get("mcp") or {}
+catalog_ids = list(old_mcp.get("catalog") or [])
+catalog_ids += [i for i in MCP_IDS if i not in catalog_ids]
+record = {
+    **existing,
+    "configVersion": 3,
+    "generatedBy": "install.sh",
+    "telemetry": {"enabled": TELEMETRY, "exporter": EXPORTER, "endpoint": ENDPOINT},
+    "assistant": {"primary": ASSISTANT, "secondary": SECONDARY, "targets": TARGETS, "speckitIntegration": INTEGRATION},
+    "mcp": {"catalog": catalog_ids, "custom": [c for c in old_mcp.get("custom") or [] if c.get("id") not in custom_ids] + CUSTOM},
+    "editor": EDITOR,
+}
+if record == existing:
+    print("  - .specify/sdd-speckit.json already current")
+else:
+    write_json(record_path, record, ".specify/sdd-speckit.json")
+
+# ------------------------------------------------- templates and harness
+# Runs last: it reads the record, and for a Copilot target it needs the render already on disk.
+
+onboard = [sys.executable, str(ROOT / "scripts" / "onboard-project.py"), "--project", str(TARGET),
+           "--industry", INDUSTRY, "--stack", STACK, "--targets", ",".join(TARGETS)]
+if MODE:
+    onboard += ["--mode", MODE]
+if GATES:
+    onboard += ["--gates", GATES]
+for spec in GATE:
+    onboard += ["--gate", spec]
+if DRY:
+    onboard.append("--dry-run")
+if DRY and not TARGET.exists():
+    print("  would: pin support files, compose templates and wire the harness gates (scripts/onboard-project.py)")
+else:
+    done = subprocess.run(onboard, capture_output=True, text=True)
+    if done.returncode != 0:
+        raise SystemExit((done.stderr or done.stdout or "onboard-project.py failed").strip())
+    for line in done.stdout.splitlines()[1:]:
+        print(line.replace("  - ! ", "  ! "))
 
 pending = [BY_ID[i]["displayName"] for i in MCP_IDS if (BY_ID.get(i, {}).get("auth") or {}).get("kind") != "none"]
 if pending:
