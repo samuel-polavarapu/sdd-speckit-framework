@@ -32,6 +32,7 @@ const CASES = {
   ],
   "Factory Droid primary, Copilot secondary": [
     "--assistant=factory", "--secondary-assistants=copilot", "--industry=public-sector", "--stack=dotnet-aspire",
+    "--mcp=github,playwright",
   ],
   "no flags at all": [],
 };

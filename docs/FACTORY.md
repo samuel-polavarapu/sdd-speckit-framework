@@ -25,7 +25,8 @@ npx create-sdd-speckit-app my-app --assistant=factory
 ```
 
 It records `factory` as a target, runs `specify init --integration droid` when `uvx` is present,
-pins the support files, composes the templates, writes `AGENTS.md` and the CI gates, and prints
+pins the support files, composes the templates, writes `AGENTS.md` and the CI gates, writes the
+chosen MCP connectors to `.factory/mcp.json` (merged with any servers already there), and prints
 the two install commands. It writes no `.claude/` files unless Claude Code is also chosen. The
 bash installer (`installer/install.sh --assistant=factory`) does the same.
 

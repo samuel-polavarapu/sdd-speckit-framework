@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { cli, snapshot, tmp } from "./helpers.js";
 
@@ -46,6 +46,27 @@ test("--assistant=factory sets up Droid without Claude Code files", () => {
   assert.ok(existsSync(join(dir, ".specify", "sdd-speckit", "scripts", "harness", "gate.py")));
   assert.match(r.stdout, /droid plugin install sdd-speckit@sdd-speckit-framework --scope project/);
   assert.match(r.stdout, /Factory Droid:\s+\/sdd-speckit-onboard/);
+});
+
+test("a Factory Droid target gets its MCP servers in .factory/mcp.json, keeping servers already there", () => {
+  const dir = tmp();
+  mkdirSync(join(dir, ".factory"));
+  writeFileSync(join(dir, ".factory", "mcp.json"), JSON.stringify({ mcpServers: { mine: { type: "stdio", command: "my-mcp" } } }));
+  const r = cli([dir, ...BASE, "--assistant=factory", "--mcp=github,playwright"]);
+  assert.equal(r.status, 0, r.stderr);
+  const droid = JSON.parse(readFileSync(join(dir, ".factory", "mcp.json"), "utf8")).mcpServers;
+  assert.deepEqual(Object.keys(droid).sort(), ["github", "mine", "playwright"]);
+  assert.equal(droid.github.type, "http");
+  assert.equal(droid.github.headers.Authorization, "Bearer ${GITHUB_PAT}");
+  assert.equal(droid.playwright.command, "npx");
+  const shared = JSON.parse(readFileSync(join(dir, ".mcp.json"), "utf8")).mcpServers;
+  assert.deepEqual(Object.keys(shared).sort(), ["github", "playwright"]);
+});
+
+test("a Claude Code target does not write .factory/", () => {
+  const dir = tmp();
+  assert.equal(cli([dir, ...BASE, "--mcp=github"]).status, 0);
+  assert.ok(!existsSync(join(dir, ".factory")));
 });
 
 test("a second run changes nothing", () => {

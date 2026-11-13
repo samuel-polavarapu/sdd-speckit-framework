@@ -341,10 +341,7 @@ function summarize(cfg, result) {
     for (const c of result.factoryRegistration.shell) lines.push(`    ${c}`);
     lines.push("  Or use /plugins inside a session. For a shared repo, point the marketplace at your published");
     lines.push("  copy of the framework (owner/repo) rather than a local path. See docs/FACTORY.md.");
-    if (result.servers?.length) {
-      lines.push("  Droid keeps project MCP servers in .factory/mcp.json. Copy the servers from .mcp.json there if");
-      lines.push("  your Droid version does not pick up .mcp.json.");
-    }
+    if (result.servers?.length) lines.push("  The MCP servers are also in .factory/mcp.json, where Droid reads them. Commit it.");
   }
 
   lines.push("", `Next step (${cfg.mode})`);

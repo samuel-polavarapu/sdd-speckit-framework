@@ -102,7 +102,7 @@ BY_ID = {c["id"]: c for c in CATALOG["connectors"]}
 
 # ------------------------------------------------------------------ .mcp.json
 
-servers = dict(read_json(TARGET / ".mcp.json", {}).get("mcpServers", {}))
+chosen = {}
 
 for cid in MCP_IDS:
     snippet = ROOT / "mcp" / "snippets" / f"{cid}.json"
@@ -129,7 +129,7 @@ for cid in MCP_IDS:
         if env_var and "Authorization" in entry.get("headers", {}):
             entry["headers"]["Authorization"] = f"Bearer ${{{env_var}}}"
 
-    servers[cid] = entry
+    chosen[cid] = entry
     print(f"  - mcp: {cid} (catalog)")
 
 for c in CUSTOM:
@@ -141,13 +141,25 @@ for c in CUSTOM:
         s = {"type": c["transport"], "url": c["url"]}
         if c.get("credentialEnvVar"):
             s["headers"] = {"Authorization": f"Bearer ${{{c['credentialEnvVar']}}}"}
-    servers[c["id"]] = s
+    chosen[c["id"]] = s
     print(f"  - mcp: {c['id']} (custom, {c['transport']})")
 
-if servers:
-    existing = read_json(TARGET / ".mcp.json", {})
-    existing["mcpServers"] = servers
-    write_json(TARGET / ".mcp.json", existing, f".mcp.json ({len(servers)} servers)")
+
+def write_mcp(rel):
+    """Each file keeps the servers it already had; the chosen ones are added or replaced."""
+    existing = read_json(TARGET / rel, {})
+    merged = {**(existing.get("mcpServers") or {}), **chosen}
+    existing["mcpServers"] = merged
+    write_json(TARGET / rel, existing, f"{rel} ({len(merged)} servers)")
+    return merged
+
+
+servers = {}
+if chosen:
+    servers = write_mcp(".mcp.json")
+    # Droid keeps project MCP servers in .factory/mcp.json. Same rule as writeMcpJson() in scaffold.js.
+    if TARGET_FACTORY:
+        write_mcp(".factory/mcp.json")
 else:
     print("  - no MCP connectors selected — .mcp.json not written")
 

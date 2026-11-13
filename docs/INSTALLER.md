@@ -129,7 +129,8 @@ you must supply it, or the run **fails before writing anything**:
 | `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/` | Composed. Replaced on a later run only while unedited. |
 | `.github/CODEOWNERS`, `docs/adr/0000-record-architecture-decisions.md` | Written once. An existing file is kept. |
 | `.gitignore` | Four local harness state paths, appended |
-| `.mcp.json` | Chosen catalog picks plus every custom entry, under `mcpServers`. Read by both assistants. |
+| `.mcp.json` | Chosen catalog picks plus every custom entry, under `mcpServers`. Read by Claude Code and Copilot. |
+| `.factory/mcp.json` | Factory Droid target only. The same servers, merged into any already there. |
 | `.vscode/` or `.idea/` | Per `editors/editor-map.json`, with the extension or plugin of every chosen assistant |
 | **Claude Code target** | |
 | `.claude/sdd-speckit/` | `commands/ agents/ skills/ hooks/ templates/` |

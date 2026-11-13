@@ -17,8 +17,9 @@ All notable changes to `sdd-speckit-framework`. Format follows
   `npm run render:factory` and `npm run check:factory`. See `docs/FACTORY.md`.
 - `<!-- factory-only ... -->` passages in sources: unwrapped for Droid, dropped for Copilot.
 - `--assistant=factory` in both installers. It records the `factory` target, uses Speckit's
-  `droid` integration, writes no Claude Code files unless `claude` is also chosen, and prints the
-  Droid plugin install commands.
+  `droid` integration, writes no Claude Code files unless `claude` is also chosen, writes the
+  chosen MCP connectors to `.factory/mcp.json` as well as `.mcp.json`, and prints the Droid plugin
+  install commands.
 
 ### Changed
 

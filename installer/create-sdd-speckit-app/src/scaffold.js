@@ -135,21 +135,30 @@ export function writeMcpJson(target, frameworkRoot, cfg, { dryRun }) {
     return { log, servers: {}, pending: [] };
   }
 
-  const p = join(target, ".mcp.json");
-  const existing = readJson(p, { mcpServers: {} });
-  const servers = { ...(existing.mcpServers ?? {}) };
-
+  const chosen = {};
   for (const id of ids) {
-    Object.assign(servers, catalogFragment(frameworkRoot, id, cfg.mcp.inputs?.[id] ?? {}));
+    Object.assign(chosen, catalogFragment(frameworkRoot, id, cfg.mcp.inputs?.[id] ?? {}));
     log.push(`mcp: ${id} (catalog)`);
   }
   for (const c of customs) {
-    Object.assign(servers, customFragment(c));
+    Object.assign(chosen, customFragment(c));
     log.push(`mcp: ${c.id} (custom, ${c.transport})`);
   }
 
-  if (dryRun) log.push(`would write .mcp.json with ${Object.keys(servers).length} servers`);
-  else writeJson(p, { ...existing, mcpServers: servers }, log, `wrote .mcp.json (${Object.keys(servers).length} servers)`);
+  // Each file keeps the servers it already had; the chosen ones are added or replaced.
+  const write = (rel) => {
+    const p = join(target, rel);
+    const existing = readJson(p, { mcpServers: {} });
+    const merged = { ...(existing.mcpServers ?? {}), ...chosen };
+    if (dryRun) log.push(`would write ${rel} with ${Object.keys(merged).length} servers`);
+    else writeJson(p, { ...existing, mcpServers: merged }, log, `wrote ${rel} (${Object.keys(merged).length} servers)`);
+    return merged;
+  };
+
+  const servers = write(".mcp.json");
+  // Droid keeps project MCP servers in .factory/mcp.json. The snippets already use its shape
+  // (type, url, headers, command, args), and ${VAR} appears only in headers, which Droid expands.
+  if (targetsFor(cfg.assistant).factory) write(".factory/mcp.json");
 
   return { log, servers, pending: pendingOauth(frameworkRoot, ids) };
 }
