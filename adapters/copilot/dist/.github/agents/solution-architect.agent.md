@@ -25,7 +25,9 @@ You turn a specification into a plan an engineer can build from.
 
 ## How you work
 
-- Check `.specify/templates/overrides/` before the base template. A stack preset override wins.
+- Check `.specify/templates/overrides/` before the base template. A composed override (base plus
+  industry and stack profiles) wins. Fill the rows and sections a profile added; never copy a
+  `<!-- slot:… -->` line.
 - One responsibility per component. Name every dependency.
 - Push unknowns into `research.md` and close each with a decision, not a summary of options.
 - Write real contracts: OpenAPI, GraphQL SDL, JSON Schema, or a typed CLI signature. Not prose.

@@ -13,6 +13,7 @@ Formats verified against code.visualstudio.com and docs.github.com on 2026-11-13
 | New project, Copilot only | `npx create-sdd-speckit-app my-app --assistant=copilot` |
 | New project, both assistants | `npx create-sdd-speckit-app my-app --assistant=both` |
 | Existing repo | `npx create-sdd-speckit-app . --emit=copilot` (Copilot files only, no questions) |
+| Existing codebase, with templates and gates | `npx create-sdd-speckit-app . --mode=brownfield --assistant=copilot`, then `/sdd-speckit-onboard` |
 | No Node | `./installer/install.sh my-app --assistant=copilot` copies the committed render in `adapters/copilot/dist/` |
 | Browse or copy by hand | `adapters/copilot/dist/`. Copy its `.github/` and `.specify/` into your repo. |
 
@@ -26,9 +27,10 @@ agent reads them from the default branch.
 | Slash command `commands/speckit.plan.md` → `/sdd-speckit:speckit.plan` | Skill `.github/skills/sdd-speckit-plan/SKILL.md` → `/sdd-speckit-plan` | `disable-model-invocation: true`. A phase is a deliberate act, so the model does not start one by itself. |
 | Subagent `agents/solution-architect.md` | Custom agent `.github/agents/solution-architect.agent.md` | `model` and `tools` carried over through `adapters/copilot/adapter.json`. |
 | Skill `skills/<name>/` | Skill `.github/skills/<name>/` | Same Agent Skills format. Paths in the text rewritten. `telemetry-report` is left out, because it reads Claude Code telemetry. |
-| Plugin hooks `hooks/hooks.json` | `.github/hooks/sdd-speckit.json` (`version: 1`) | Constitution guard (`preToolUse`) and artifact changelog (`postToolUse`). The same scripts run under both. |
-| `${CLAUDE_PLUGIN_ROOT}/templates/` … | `.specify/sdd-speckit/templates/` … | Templates, presets, MCP catalog, editor map, hook scripts, RACI and model-routing docs. |
-| `CLAUDE.md` (none shipped) | `.github/copilot-instructions.md` | A marked block with the phase table and the rules. Text outside the markers is yours and is kept on re-render. |
+| Plugin hooks `hooks/hooks.json` | `.github/hooks/sdd-speckit.json` (`version: 1`) | The harness gates (`preToolUse` and `postToolUse`) and the artifact changelog (`postToolUse`). The same scripts run under both. |
+| `${CLAUDE_PLUGIN_ROOT}/templates/` … | `.specify/sdd-speckit/templates/` … | Templates, industry and stack profiles, the composer, the gate runner, MCP catalog, editor map, hook scripts, RACI and model-routing docs. |
+| `CLAUDE.md` | `AGENTS.md` and `.github/copilot-instructions.md` | Copilot reads `AGENTS.md`, which onboarding generates for both assistants. The instructions file gets a marked block with the phase table and the rules. Text outside the markers is yours and is kept on re-render. |
+| `.claude/settings.json` permission rules | none | Copilot has no project permission file. The gates and CI carry the load. |
 | `.mcp.json` | `.mcp.json` | **The same file.** Copilot reads the workspace-root `.mcp.json` with `mcpServers` and `${VAR}` references. |
 
 Why skills and not `.github/prompts/*.prompt.md`: VS Code runs prompt files only in its Local
@@ -68,15 +70,31 @@ advisory.
 
 Any command that declares `disallowed-tools` gets the same treatment automatically.
 
-## The constitution guard
+## The harness gates
 
-`.github/hooks/sdd-speckit.json` runs `guard-constitution.sh` before every tool call. The hook has
+`.github/hooks/sdd-speckit.json` runs the gate runner (`scripts/harness/hook.sh pre`, then `post`)
+around every tool call. The constitution guard is one of its six gates. The gates, their modes and
+the configuration are the same as in Claude Code: see [HARNESS.md](HARNESS.md).
+
+What differs on Copilot:
+
+| Topic | Claude Code | GitHub Copilot |
+|---|---|---|
+| Hook matcher | `Write\|Edit\|NotebookEdit` | None. The runner decides from the payload. |
+| A `block` | Exit 2, and the reason goes back to the model | Exit 2 and `{"permissionDecision":"deny", …}` |
+| A `warn` | A `systemMessage` shown in the session | Text on stderr. Whether Copilot shows it depends on the surface. The finding is always in `.specify/harness-log.jsonl`. |
+| Lint output after a write | Fed back to the model | Logged. Not fed back. |
+| Permission rules | `.claude/settings.json` | None |
+
+Because of these limits, **CI is the equaliser**. `.github/workflows/sdd-gates.yml` runs the same
+runner on every pull request, whichever assistant wrote the change.
+
+The hook has The hook has
 no `matcher`, because Copilot's tool names differ between the CLI (`edit`, `create`), the cloud
 agent and VS Code. Instead, the script itself decides when to act:
 
-- **What it ignores.** It looks only at file-writing tools, and only at writes to
-  `.specify/memory/constitution.md`. Reads pass. So do writes whose *content* merely mentions that
-  path.
+- **What it ignores.** It looks only at file-writing tools. Reads pass. For the constitution
+  guard, so do writes whose *content* merely mentions the constitution path.
 - **Payloads.** `_payload.py` reads both payload shapes. Claude Code sends `tool_name`/`tool_input`.
   Copilot sends `toolName`/`toolArgs`, with `toolArgs` as a JSON string or as an object. For an
   `apply_patch` call, the script takes the target paths from the patch headers.
@@ -95,6 +113,13 @@ The installer says so when Copilot is the only assistant.
 invoked as `/speckit-plan` (checked against spec-kit `2ee2b1e`, 2026-11-13). This framework's skills
 are `sdd-speckit-*`, so the two sets do not collide. With `--assistant=both`, the installer runs
 `specify init` once per integration, and both runs merge into the same `.specify/`.
+
+## Command names inside composed templates
+
+When Copilot is a target, the Copilot render owns `.specify/sdd-speckit/`, and the templates are
+composed from that copy. A composed template therefore names phases in the Copilot form, for
+example `/sdd-speckit-analyze` in the constitution's gate table. With `--assistant=both`, Claude
+Code users see that form too. The phase is the same one: `/sdd-speckit:speckit.analyze`.
 
 ## MCP and the cloud agent
 
@@ -126,5 +151,5 @@ skill folders). `--strict` reports every extra file, which is what the `dist/` c
 
 ## Related
 
-[Architecture](ARCHITECTURE.md) · [Installer](INSTALLER.md) · [Model routing](MODEL_ROUTING.md) ·
-[MCP connectors](MCP_CONNECTORS.md)
+[Harness](HARNESS.md) · [Templates](TEMPLATES.md) · [Architecture](ARCHITECTURE.md) ·
+[Installer](INSTALLER.md) · [Model routing](MODEL_ROUTING.md) · [MCP connectors](MCP_CONNECTORS.md)

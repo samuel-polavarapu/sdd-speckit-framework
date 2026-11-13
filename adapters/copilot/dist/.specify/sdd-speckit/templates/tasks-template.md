@@ -1,5 +1,6 @@
 # Tasks: [FEATURE NAME]
 
+<!-- slot:preamble -->
 **Plan:** `./plan.md` · **Spec:** `./spec.md`
 **Created:** [YYYY-MM-DD] · **Total tasks:** [N]
 
@@ -10,6 +11,7 @@
 - Every task states the exact file path it changes.
 - A test task always precedes the implementation task it covers. This is constitution gate N1.
 - Task ids are stable. Do not renumber; append instead.
+<!-- slot:conventions-items -->
 
 ## Phase 1 — Setup
 
@@ -53,6 +55,7 @@ These tests must exist and **must fail** before Phase 3 starts.
 | T014 | [Performance check against NFR-001.] | `[path]` | T012 | |
 | T015 | [Remove duplication found in review.] | `[path]` | T012 | |
 
+<!-- slot:sections-after-phases -->
 ## Requirement coverage
 
 Every requirement in `spec.md` needs at least one task. An empty cell is a gap.
@@ -62,6 +65,7 @@ Every requirement in `spec.md` needs at least one task. An empty cell is a gap.
 | FR-001 | T004, T009 |
 | FR-002 | [tasks] |
 | NFR-001 | T014 |
+<!-- slot:coverage-rows -->
 
 ## Parallel execution example
 
@@ -77,3 +81,4 @@ T004  T005  T006
 - [ ] Requirement coverage table has no empty cell
 - [ ] `/sdd-speckit-analyze` reports no inconsistency
 - [ ] Constitution gates are green
+<!-- slot:definition-of-done-items -->

@@ -284,14 +284,18 @@ function renderSupport(frameworkRoot, adapter) {
 }
 
 function renderHooks(adapter) {
-  const script = (name) => `sh ${adapter.supportDir}/scripts/hooks/${name}`;
+  const script = (path) => `sh ${adapter.supportDir}/scripts/${path}`;
   // No matcher: Copilot's tool names differ between the CLI, the cloud agent and VS Code. Each
   // script filters on the tool name and path itself, so it is safe to run on every tool call.
+  // The gate runner applies the modes in .specify/sdd-speckit.json; hook.sh is its entry point.
   const hooks = {
     version: 1,
     hooks: {
-      preToolUse: [{ type: "command", bash: script("guard-constitution.sh"), cwd: ".", timeoutSec: 10 }],
-      postToolUse: [{ type: "command", bash: script("log-artifact-change.sh"), cwd: ".", timeoutSec: 10 }],
+      preToolUse: [{ type: "command", bash: script("harness/hook.sh pre"), cwd: ".", timeoutSec: 15 }],
+      postToolUse: [
+        { type: "command", bash: script("hooks/log-artifact-change.sh"), cwd: ".", timeoutSec: 10 },
+        { type: "command", bash: script("harness/hook.sh post"), cwd: ".", timeoutSec: 30 },
+      ],
     },
   };
   return [{ path: ".github/hooks/sdd-speckit.json", content: Buffer.from(JSON.stringify(hooks, null, 2) + "\n") }];
@@ -330,9 +334,11 @@ export function instructionsBlock(frameworkRoot, adapter) {
     `- **\`specify\` comes before \`plan\`.** It is the only strict ordering rule. \`clarify\`, \`checklist\` and \`analyze\` are quality gates.`,
     `- **Never edit \`.specify/memory/constitution.md\` directly.** Amend it with \`/${p}constitution\`. A \`preToolUse\` hook (\`.github/hooks/sdd-speckit.json\`) blocks other writes. It guards against accidents. It is not a security boundary.`,
     `- **\`/${p}analyze\` is read-only.** It produces a report and changes nothing.`,
+    `- **Onboarding.** Run \`/${p}onboard\` once. An existing codebase (brownfield) then goes \`/${p}discover\` → \`/${p}constitution\` → \`/${p}baseline\` before the feature phases.`,
+    "- **Harness gates.** `.specify/sdd-speckit.json` sets each gate to `off`, `warn` or `block`. The same runner (`.specify/sdd-speckit/scripts/harness/gate.py`) checks writes in the hook and pull requests in CI. When a gate stops a write, fix the cause; do not route around it.",
     "- When a phase skill names a custom agent, run the work in that agent as a subagent. It pins the model tier and the tool set.",
-    `- Templates are in \`${adapter.supportDir}/templates/\`. A stack preset override in \`.specify/templates/overrides/\` wins over the base template.`,
-    "- The project's framework choices (stack, assistants, MCP connectors, editor) are recorded in `.specify/sdd-speckit.json`.",
+    `- Templates are in \`${adapter.supportDir}/templates/\`. A composed template in \`.specify/templates/overrides/\` (base + industry profile + stack profile) wins over the base template.`,
+    "- The project's framework choices (mode, industry, stack, assistants, MCP connectors, editor, gates) are recorded in `.specify/sdd-speckit.json`.",
     "- Requirements go in `spec.md` and say what and why, never how. Technology choices go in `plan.md`, each with the alternative it rejected.",
     "- Write tests before the implementation they cover.",
     BLOCK_END,
@@ -340,7 +346,7 @@ export function instructionsBlock(frameworkRoot, adapter) {
   ].join("\n");
 }
 
-const PHASE_ORDER = ["constitution", "specify", "clarify", "plan", "checklist", "tasks", "analyze", "implement", "converge", "setup"];
+const PHASE_ORDER = ["onboard", "discover", "constitution", "baseline", "specify", "clarify", "plan", "checklist", "tasks", "analyze", "implement", "converge", "setup"];
 function phaseOrder(a, b) {
   const ia = PHASE_ORDER.indexOf(a.replace(/^speckit\.|\.md$/g, ""));
   const ib = PHASE_ORDER.indexOf(b.replace(/^speckit\.|\.md$/g, ""));

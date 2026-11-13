@@ -14,12 +14,21 @@ disable-model-invocation: true
 
 You are closing the loop: the spec says one thing, the code does another, and you name the delta.
 
+## Templates
+
+For every template this phase names, use `.specify/templates/overrides/<file>` when it exists,
+otherwise `.specify/sdd-speckit/templates/<file>`. An override is the base template composed
+with the project's industry and stack profiles, so it wins. A line of the form
+`<!-- slot:… -->` is a composition marker: never copy it into an artifact.
+
 ## Read first
 
-1. `specs/<NNN>-<slug>/spec.md`, `plan.md`, `tasks.md`. Default to the highest `NNN`.
+1. `specs/<NNN>-<slug>/spec.md`, `plan.md`, `tasks.md`. Default to the feature in `.specify/.active-spec`, then to the highest `NNN`.
 2. The **implemented source code**, not the plan's description of it. Read what shipped.
 3. `.specify/memory/constitution.md`.
 4. The test suite, and its most recent result.
+5. `specs/<NNN>-<slug>/implementation-log.md` — the recorded deviations.
+6. `converge-report-template.md`.
 
 ## Do
 
@@ -32,17 +41,22 @@ Delegate to **qa-analyst** for the assessment and **code-reviewer** for the code
    - **Drifted** — code exists and behaves differently from the requirement. Quote both.
 2. Find code with no requirement behind it. That is either undocumented scope or dead code. Say
    which you think it is.
-3. Check the constitution gates against the shipped state, not the intended state.
+3. Check the constitution gates against the shipped state, not the intended state. Include
+   every profile gate `G-<XX>-n`.
 4. Append gap-filling tasks to `tasks.md` as a new `## Phase 6 — Convergence` section. Keep ids
    append-only, continuing from the highest existing id. Tests before fixes, as always.
 
 ## Write to
 
-`specs/<NNN>-<slug>/tasks.md` — appended convergence phase only. Do not rewrite earlier phases,
-and do not edit `spec.md`; if the spec is what is wrong, say so and send the user to
+- `specs/<NNN>-<slug>/converge-report.md` — the report, from the template.
+- `specs/<NNN>-<slug>/tasks.md` — appended convergence phase only.
+
+Do not rewrite earlier phases, and do not edit `spec.md`; if the spec is what is wrong, say so and send the user to
 `/sdd-speckit-specify`.
 
 ## Report
+
+Show the report you wrote. Its outline:
 
 ```
 ## Convergence report — specs/<NNN>-<slug>

@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "kind": "stack",
+  "id": "dotnet-aspire",
+  "label": ".NET distributed app (Aspire)",
+  "description": ".NET 9 with Aspire orchestration, EF Core, xUnit and Testcontainers.",
+  "speckit": {
+    "presetHint": "Run `specify preset search` for a published preset that matches this stack before relying on these local overrides."
+  },
+  "defaults": {
+    "language": "C# 13 / .NET 9",
+    "orchestration": ".NET Aspire",
+    "storage": "SQL Server or PostgreSQL + EF Core 9",
+    "unitTest": "xUnit",
+    "integrationTest": "Testcontainers",
+    "lint": "dotnet format + Roslyn analyzers",
+    "packageManager": "NuGet with central package management"
+  },
+  "recommendedMcp": [
+    "github",
+    "atlassian"
+  ],
+  "harness": {
+    "sourceGlobs": [
+      "src/**"
+    ],
+    "testGlobs": [
+      "tests/**",
+      "**/*.Tests/**",
+      "**/*Tests.cs"
+    ],
+    "commands": {
+      "test": "dotnet test",
+      "lint": "dotnet build -warnaserror",
+      "format": "dotnet format --verify-no-changes",
+      "lintFile": ""
+    }
+  },
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build:*)",
+      "Bash(dotnet test:*)",
+      "Bash(dotnet format:*)",
+      "Bash(dotnet restore:*)",
+      "Bash(dotnet ef migrations list:*)"
+    ]
+  }
+}

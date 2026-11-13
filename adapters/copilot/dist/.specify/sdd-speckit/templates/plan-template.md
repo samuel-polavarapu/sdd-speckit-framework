@@ -1,5 +1,6 @@
 # Implementation plan: [FEATURE NAME]
 
+<!-- slot:preamble -->
 **Spec:** `./spec.md` · **Branch:** `[NNN]-[feature-slug]`
 **Created:** [YYYY-MM-DD] · **Status:** Draft
 
@@ -11,6 +12,7 @@
 
 | Field | Value |
 |---|---|
+<!-- slot:technical-context-rows:begin -->
 | Language and version | [e.g. TypeScript 5.6 / Python 3.12 / C# 12] |
 | Primary framework | [NEEDS CLARIFICATION if not decided] |
 | Storage | [Database or "none"] |
@@ -20,6 +22,8 @@
 | Performance goal | [From NFR, restated as an engineering target] |
 | Constraints | [Hard limits: budget, latency, compliance] |
 | Scale | [Users, requests, data volume] |
+<!-- slot:technical-context-rows:end -->
+<!-- slot:technical-context-extra-rows -->
 
 ## Constitution check
 
@@ -31,6 +35,7 @@ Run before design, and again after. A failed gate blocks `/sdd-speckit-tasks`.
 | N2 Spec before code | [PASS / FAIL] | [Link to spec.] |
 | N3 Agent output reviewed | [PASS / FAIL] | [Named reviewer.] |
 | N4 Clarify before build | [PASS / FAIL] | [Open marker count.] |
+<!-- slot:constitution-check-rows -->
 
 **Violations and justification:** [None, or: gate, reason, simpler alternative rejected and why.]
 
@@ -85,23 +90,29 @@ Full detail in `./contracts/`. Summary:
 
 | Layer | Scope | Tool | Gate |
 |---|---|---|---|
+<!-- slot:test-strategy-rows:begin -->
 | Unit | [What.] | [Tool.] | [Threshold.] |
 | Integration | [What.] | [Tool.] | [Threshold.] |
 | Contract | [What.] | [Tool.] | [Threshold.] |
 | End to end | [Critical paths.] | [Tool.] | [Threshold.] |
+<!-- slot:test-strategy-rows:end -->
+<!-- slot:test-strategy-extra-rows -->
 
 ## Risks
 
 | # | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|---|
 | R1 | [Risk.] | [L/M/H] | [L/M/H] | [Action, and its owner.] |
+<!-- slot:risks-rows -->
 
 ## Rollout and rollback
 
 - **Rollout:** [Flag, staged release, or direct.]
 - **Rollback:** [The exact revert path.]
 - **Monitoring:** [Signal that says this is working, and the alert threshold.]
+<!-- slot:rollout-items -->
 
+<!-- slot:sections-before-open-questions -->
 ## Open questions
 
 | # | Question | Blocks | Owner |
@@ -114,3 +125,4 @@ Full detail in `./contracts/`. Summary:
 - [ ] `data-model.md`
 - [ ] `contracts/`
 - [ ] `quickstart.md`
+<!-- slot:artifacts-items -->

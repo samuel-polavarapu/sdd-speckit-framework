@@ -1,33 +1,51 @@
 #!/usr/bin/env bash
 # install.sh — bash fallback for create-sdd-speckit-app.
 #
-# Asks the same five questions in the same order, accepts the same flags, and writes the same
+# Asks the same eight questions in the same order, accepts the same flags, and writes the same
 # files. When Node 18 or newer is present it delegates to the Node installer, which is the
 # reference implementation. Otherwise it does the work here with git, curl and python3.
 #
 #   ./install.sh my-app
 #   ./install.sh my-app --yes --stack=python-fastapi --mcp=github,playwright --editor=vscode
+#   ./install.sh . --yes --mode=brownfield --industry=healthcare --stack=dotnet-aspire
 #   ./install.sh --help
 
 set -euo pipefail
 
 FRAMEWORK_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VERSION="0.2.0"
+VERSION="0.3.0"
 
 TARGET="."
 YES=0
 DRY_RUN=0
 NO_SPECKIT=0
-TELEMETRY="off"
-OTEL_EXPORTER="console"
+# Empty means "not given". A previous run's answer, then the default, fills it in below.
+TELEMETRY=""
+OTEL_EXPORTER=""
 OTEL_ENDPOINT=""
-STACK="custom"
-ASSISTANT="claude"
+MODE=""
+INDUSTRY=""
+STACK=""
+ASSISTANT=""
 SECONDARY=""
 MCP=""
-EDITOR_CHOICE="vscode"
+EDITOR_CHOICE=""
+GATES=""
+GATE=()
 MCP_CUSTOM=()
 MCP_INPUT=()
+
+profile_ids() { # industries|stacks
+  local d
+  for d in "$FRAMEWORK_ROOT/profiles/$1"/*/; do
+    [ -f "${d}profile.json" ] && basename "$d"
+  done
+  return 0
+}
+GATE_IDS="$(python3 -c "
+import json
+print(' '.join(g['id'] for g in json.load(open('$FRAMEWORK_ROOT/scripts/harness/gates.json'))['gates']))
+" 2>/dev/null || true)"
 
 usage() {
   cat <<EOF
@@ -35,15 +53,20 @@ install.sh $VERSION — bash fallback installer for the SDD Speckit Framework
 
   ./install.sh [project-directory] [options]
 
-Asks five questions, in this order, before it writes anything:
-  1 telemetry   2 tech stack   3 primary assistant   4 MCP connectors   5 code editor
+Asks eight questions, in this order, before it writes anything:
+  1 telemetry   2 project mode   3 industry   4 tech stack   5 primary assistant
+  6 MCP connectors   7 code editor   8 harness gates
+
+Run it again in the same directory to change an answer. An answer you do not give again is kept.
 
 Options (identical to create-sdd-speckit-app)
   --yes                      Non-interactive. Every unset flag takes its documented default.
   --telemetry=<on|off>       Default: off
   --otel-exporter=<console|otlp>
   --otel-endpoint=<url>
-  --stack=<id>               $(ls -1 "$FRAMEWORK_ROOT/presets" 2>/dev/null | tr '\n' '|' | sed 's/|$//')|custom
+  --mode=<greenfield|brownfield|auto>   Default: auto (brownfield when the directory holds code)
+  --industry=<id>            none|$(profile_ids industries | tr '\n' '|' | sed 's/|$//')   Default: none
+  --stack=<id>               custom|auto|$(profile_ids stacks | tr '\n' '|' | sed 's/|$//')   Default: custom
   --assistant=<claude|copilot|both|cursor|other>
                              both = Claude Code and GitHub Copilot
   --secondary-assistants=<a,b>
@@ -52,6 +75,10 @@ Options (identical to create-sdd-speckit-app)
   --mcp-input=<id>.<field>=<value>                   Repeatable. Required for a tenant-hosted
                              connector such as Rally, which has no default URL.
   --editor=<vscode|cursor|jetbrains|none>
+  --gates=<default|off|warn|block>   All gates at once. Default: the defaults for the mode
+                             (greenfield: all block; brownfield: warn, except the constitution
+                             guard and the secrets scan, which block)
+  --gate=<id>=<off|warn|block>       One gate. Repeatable. Ids: $GATE_IDS
   --dry-run                  Print every action and write nothing
   --no-speckit               Skip \`specify init\`
   --no-node                  Do not delegate to the Node installer
@@ -73,7 +100,11 @@ for arg in "$@"; do
     --telemetry=*) TELEMETRY="${arg#*=}" ;;
     --otel-exporter=*) OTEL_EXPORTER="${arg#*=}" ;;
     --otel-endpoint=*) OTEL_ENDPOINT="${arg#*=}" ;;
+    --mode=*) MODE="${arg#*=}" ;;
+    --industry=*) INDUSTRY="${arg#*=}" ;;
     --stack=*) STACK="${arg#*=}" ;;
+    --gates=*) GATES="${arg#*=}" ;;
+    --gate=*) GATE+=("${arg#*=}") ;;
     --assistant=*) ASSISTANT="${arg#*=}" ;;
     --secondary-assistants=*) SECONDARY="${arg#*=}" ;;
     --mcp=*) MCP="${arg#*=}" ;;
@@ -104,7 +135,67 @@ for tool in python3 curl; do
   command -v "$tool" >/dev/null 2>&1 || { echo "Required tool missing: $tool" >&2; exit 1; }
 done
 
-# ------------------------------------------------- the five questions, in order
+# ------------------------------------------------------- earlier answers
+# A flag wins over the record a previous run left. The record wins over the defaults.
+
+RECORD="$TARGET/.specify/sdd-speckit.json"
+HAVE_RECORD=0
+EX_TELEMETRY=""; EX_OTEL_EXPORTER=""; EX_OTEL_ENDPOINT=""; EX_MODE=""; EX_INDUSTRY=""; EX_STACK=""
+EX_ASSISTANT=""; EX_SECONDARY=""; EX_EDITOR=""
+if [ -f "$RECORD" ]; then
+  HAVE_RECORD=1
+  eval "$(python3 - "$RECORD" <<'EOPY'
+import json, shlex, sys
+try:
+    r = json.load(open(sys.argv[1]))
+except Exception:
+    r = {}
+t, a = r.get("telemetry") or {}, r.get("assistant") or {}
+out = {
+    "EX_TELEMETRY": ("on" if t.get("enabled") else "off") if "enabled" in t else "",
+    "EX_OTEL_EXPORTER": t.get("exporter"), "EX_OTEL_ENDPOINT": t.get("endpoint"),
+    "EX_MODE": r.get("mode"), "EX_INDUSTRY": r.get("industry"), "EX_STACK": r.get("stack"),
+    "EX_ASSISTANT": a.get("primary"), "EX_SECONDARY": ",".join(a.get("secondary") or []),
+    "EX_EDITOR": r.get("editor"),
+}
+for k, v in out.items():
+    print("%s=%s" % (k, shlex.quote(str(v or ""))))
+EOPY
+)"
+fi
+
+if [ -z "$TELEMETRY" ]; then
+  TELEMETRY="${EX_TELEMETRY:-off}"
+  [ -z "$OTEL_EXPORTER" ] && OTEL_EXPORTER="$EX_OTEL_EXPORTER"
+  [ -z "$OTEL_ENDPOINT" ] && OTEL_ENDPOINT="$EX_OTEL_ENDPOINT"
+fi
+[ -z "$TELEMETRY" ] && TELEMETRY="off"
+if [ -z "$OTEL_EXPORTER" ]; then
+  if [ -n "$OTEL_ENDPOINT" ]; then OTEL_EXPORTER="otlp"; else OTEL_EXPORTER="console"; fi
+fi
+[ -z "$INDUSTRY" ] && INDUSTRY="${EX_INDUSTRY:-none}"
+[ -z "$STACK" ] && STACK="${EX_STACK:-custom}"
+if [ -z "$ASSISTANT" ]; then
+  ASSISTANT="${EX_ASSISTANT:-claude}"
+  [ -z "$SECONDARY" ] && SECONDARY="$EX_SECONDARY"
+fi
+[ -z "$EDITOR_CHOICE" ] && EDITOR_CHOICE="${EX_EDITOR:-vscode}"
+# A directory with no record takes the scan's answer. A record from before 0.3.0 has no mode: it
+# keeps its old behaviour (the constitution guard only) until --mode is given.
+[ -z "$MODE" ] && [ "$HAVE_RECORD" -eq 0 ] && MODE="auto"
+
+scan_brief() { # field
+  [ -d "$TARGET" ] || { echo ""; return 0; }
+  python3 "$FRAMEWORK_ROOT/scripts/discover-scan.py" "$TARGET" --brief 2>/dev/null | python3 -c "
+import json, sys
+try:
+    print(json.load(sys.stdin).get('$1') or '')
+except Exception:
+    print('')
+"
+}
+
+# ------------------------------------------------ the eight questions, in order
 
 ask_yn() { # prompt default(y|n)
   local prompt="$1" default="$2" reply suffix
@@ -135,15 +226,16 @@ ask_choice() { # varname prompt default option...
 
 if [ "$YES" -eq 0 ]; then
   echo ""
-  echo "create-sdd-speckit-app (bash) — five questions, then it scaffolds."
+  echo "create-sdd-speckit-app (bash) — eight questions, then it scaffolds."
 
   # 1 telemetry
   echo ""
   echo "Enable OpenTelemetry usage monitoring for this project?"
   echo "  It records local metrics — sessions, tokens, estimated cost. It sends nothing to Anthropic."
-  if ask_yn "Enable it?" "n"; then
+  tdef="n"; [ "$TELEMETRY" = "on" ] && tdef="y"
+  if ask_yn "Enable it?" "$tdef"; then
     TELEMETRY="on"
-    ask_choice OTEL_EXPORTER "Which exporter?" "console" "console" "otlp"
+    ask_choice OTEL_EXPORTER "Which exporter?" "$OTEL_EXPORTER" "console" "otlp"
     if [ "$OTEL_EXPORTER" = "otlp" ]; then
       read -r -p "OTLP endpoint [http://localhost:4317]: " OTEL_ENDPOINT || true
       [ -z "$OTEL_ENDPOINT" ] && OTEL_ENDPOINT="http://localhost:4317"
@@ -152,20 +244,39 @@ if [ "$YES" -eq 0 ]; then
     TELEMETRY="off"
   fi
 
-  # 2 tech stack
-  mapfile -t STACKS < <(ls -1 "$FRAMEWORK_ROOT/presets" 2>/dev/null; echo custom)
-  ask_choice STACK "Which tech stack?" "custom" "${STACKS[@]}"
+  # 2 project mode
+  mdef="${EX_MODE:-$(scan_brief mode)}"; [ -z "$mdef" ] && mdef="greenfield"
+  [ "$MODE" = "greenfield" ] || [ "$MODE" = "brownfield" ] && mdef="$MODE"
+  echo ""
+  echo "Is this a new project or an existing codebase?"
+  echo "  greenfield: gates start at block. brownfield: gates start at warn, and discovery,"
+  echo "  a derived constitution and baseline specs come first."
+  ask_choice MODE "Project mode?" "$mdef" "greenfield" "brownfield"
 
-  # 3 primary assistant
-  ask_choice ASSISTANT "Primary AI coding assistant?" "claude" "claude" "copilot" "both" "cursor" "other"
+  # 3 industry
+  INDUSTRIES=(none); while IFS= read -r line; do [ -n "$line" ] && INDUSTRIES+=("$line"); done < <(profile_ids industries)
+  ask_choice INDUSTRY "Which industry or domain? It adds that domain's standards to the templates." "$INDUSTRY" "${INDUSTRIES[@]}"
+
+  # 4 tech stack
+  STACKS=(); while IFS= read -r line; do [ -n "$line" ] && STACKS+=("$line"); done < <(profile_ids stacks)
+  STACKS+=(custom)
+  sdef="$STACK"
+  if [ "$sdef" = "custom" ] || [ "$sdef" = "auto" ]; then sdef="$(scan_brief stack)"; [ -z "$sdef" ] && sdef="custom"; fi
+  ask_choice STACK "Which tech stack?" "$sdef" "${STACKS[@]}"
+
+  # 5 primary assistant
+  adef="$ASSISTANT"
+  case ",$SECONDARY," in *,copilot,*) [ "$ASSISTANT" = "claude" ] && adef="both" ;; esac
+  ask_choice ASSISTANT "Primary AI coding assistant?" "$adef" "claude" "copilot" "both" "cursor" "other"
+  SECONDARY=""
   if [ "$ASSISTANT" != "both" ]; then
     read -r -p "Secondary assistants, comma separated (blank for none): " SECONDARY || true
   fi
 
-  # 4 MCP connectors
+  # 6 MCP connectors
   echo ""
   echo "Which MCP connectors? (optional)"
-  mapfile -t IDS < <(python3 -c "
+  IDS=(); while IFS= read -r line; do [ -n "$line" ] && IDS+=("$line"); done < <(python3 -c "
 import json
 for c in json.load(open('$FRAMEWORK_ROOT/mcp/catalog.json'))['connectors']:
     print(c['id'])
@@ -178,9 +289,32 @@ for i, c in enumerate(json.load(open('$FRAMEWORK_ROOT/mcp/catalog.json'))['conne
     extra = '; asks for your own URL' if c.get('requiresUserInput') else ''
     print('  %d) %s - %s (%s%s)' % (i, c['displayName'], c['description'], kind, extra))
 "
-  read -r -p "Numbers, comma separated (blank for none): " picks || picks=""
+  # The stack profile's suggestions are the default on a first run; earlier picks win.
+  SUGGESTED="$(STACK="$STACK" FRAMEWORK_ROOT="$FRAMEWORK_ROOT" python3 - <<'EOPY'
+import json, os
+root, stack = os.environ["FRAMEWORK_ROOT"], os.environ.get("STACK", "")
+try:
+    wanted = json.load(open(os.path.join(root, "profiles", "stacks", stack, "profile.json"))).get("recommendedMcp", [])
+except (OSError, ValueError):
+    wanted = []
+print(",".join(c["id"] for c in json.load(open(os.path.join(root, "mcp", "catalog.json")))["connectors"]
+               if c["id"] in wanted and not c.get("requiresUserInput")
+               and not (c.get("auth") or {}).get("needsUpfrontCredential")))
+EOPY
+)"
+  MCP_DEFAULT="${MCP:-$SUGGESTED}"
+  if [ -n "$MCP_DEFAULT" ]; then
+    [ -z "$MCP" ] && echo "  The $STACK stack profile suggests: $SUGGESTED"
+    read -r -p "Numbers, comma separated (blank keeps $MCP_DEFAULT; \"none\" for none): " picks || picks=""
+  else
+    read -r -p "Numbers, comma separated (blank for none): " picks || picks=""
+  fi
   MCP=""
-  if [ -n "$picks" ]; then
+  if [ -z "$picks" ]; then
+    MCP="$MCP_DEFAULT"
+  elif [ "$picks" = "none" ]; then
+    MCP=""
+  else
     IFS=',' read -r -a nums <<< "$picks"
     for n in "${nums[@]}"; do
       n="$(printf '%s' "$n" | tr -d '[:space:]')"
@@ -226,18 +360,73 @@ print('1' if c and c.get('requiresUserInput') else '0')
     MCP_CUSTOM+=("$cid:$ctrans:$cval")
   done
 
-  # 5 editor
-  ask_choice EDITOR_CHOICE "Preferred code editor?" "vscode" "vscode" "cursor" "jetbrains" "none"
+  # 7 editor
+  ask_choice EDITOR_CHOICE "Preferred code editor?" "$EDITOR_CHOICE" "vscode" "cursor" "jetbrains" "none"
+
+  # 8 harness gates
+  echo ""
+  echo "How strict should the harness gates be? They run in the assistant hooks and in CI."
+  echo "  default: the $MODE defaults. custom: choose off, warn or block for each gate."
+  ask_choice GATES "Harness gates?" "default" "default" "custom" "warn" "off"
+  if [ "$GATES" = "custom" ]; then
+    GATES="default"; GATE=()
+    for gid in $GATE_IDS; do
+      gdef="block"
+      if [ "$MODE" = "brownfield" ] && [ "$gid" != "constitution-guard" ] && [ "$gid" != "secrets-scan" ]; then gdef="warn"; fi
+      ask_choice gmode "  $gid" "$gdef" "off" "warn" "block"
+      GATE+=("$gid=$gmode")
+    done
+  fi
 
   echo ""
   echo "Scaffold into $(cd "$(dirname "$TARGET")" 2>/dev/null && pwd || echo "$PWD")/$(basename "$TARGET")?"
-  echo "  telemetry=$TELEMETRY stack=$STACK assistant=$ASSISTANT mcp=${MCP:-none} editor=$EDITOR_CHOICE"
+  echo "  telemetry=$TELEMETRY mode=$MODE industry=$INDUSTRY stack=$STACK"
+  echo "  assistant=$ASSISTANT mcp=${MCP:-none} editor=$EDITOR_CHOICE gates=$GATES ${GATE[*]:-}"
   ask_yn "Proceed?" "y" || { echo ""; echo "Nothing written."; exit 0; }
 fi
 
 # ---------------------------------------------------------------- validation
 # Runs before the first write, so a tenant-hosted connector with no URL fails with nothing
 # half-written. The Node installer validates at the same point.
+
+GATE_JOINED="$(printf '%s\n' "${GATE[@]:-}" | paste -sd'|' -)"
+MODE="$MODE" INDUSTRY="$INDUSTRY" STACK="$STACK" GATES="$GATES" GATE_JOINED="$GATE_JOINED" \
+TELEMETRY="$TELEMETRY" FRAMEWORK_ROOT="$FRAMEWORK_ROOT" python3 - <<'EOPY' || exit 1
+import json, os, sys
+
+env, root = os.environ, os.environ["FRAMEWORK_ROOT"]
+defs = json.load(open(os.path.join(root, "scripts", "harness", "gates.json")))
+gate_ids, modes = [g["id"] for g in defs["gates"]], list(defs["modes"])
+
+
+def ids(folder):
+    base = os.path.join(root, "profiles", folder)
+    return sorted(d for d in os.listdir(base) if os.path.isfile(os.path.join(base, d, "profile.json"))) if os.path.isdir(base) else []
+
+
+errors = []
+if env["TELEMETRY"] not in ("on", "off"):
+    errors.append('--telemetry must be on or off, got "%s"' % env["TELEMETRY"])
+if env["MODE"] not in ("", "greenfield", "brownfield", "auto"):
+    errors.append('--mode must be greenfield, brownfield or auto, got "%s"' % env["MODE"])
+industries = ["none"] + ids("industries")
+if env["INDUSTRY"] not in industries:
+    errors.append('--industry="%s" is unknown. Choose: %s' % (env["INDUSTRY"], " | ".join(industries)))
+stacks = ["custom"] + ids("stacks")
+if env["STACK"] not in stacks + ["auto"]:
+    errors.append('--stack="%s" is unknown. Choose: %s' % (env["STACK"], " | ".join(stacks)))
+if env["GATES"] not in ["", "default"] + modes:
+    errors.append('--gates must be default, %s, got "%s"' % (" or ".join(modes), env["GATES"]))
+for spec in [s for s in env["GATE_JOINED"].split("|") if s]:
+    gid, _, value = spec.partition("=")
+    if gid not in gate_ids or value not in modes:
+        errors.append('--gate="%s" must be <%s>=<%s>' % (spec, "|".join(gate_ids), "|".join(modes)))
+for e in errors:
+    print(e, file=sys.stderr)
+if errors:
+    print("\nRun with --help for the flag list.", file=sys.stderr)
+sys.exit(1 if errors else 0)
+EOPY
 
 MCP_INPUT_PRECHECK="$(printf '%s\n' "${MCP_INPUT[@]:-}" | paste -sd'|' -)"
 if [ -n "${MCP:-}" ]; then
@@ -323,21 +512,16 @@ for d in commands agents skills hooks templates; do
   else cp -R "$FRAMEWORK_ROOT/$d" "$TARGET/.claude/sdd-speckit/"; echo "  - copied $d/"; fi
 done
 
-if [ -d "$FRAMEWORK_ROOT/presets/$STACK/templates" ]; then
-  run mkdir -p "$TARGET/.specify/templates/overrides"
-  for f in "$FRAMEWORK_ROOT/presets/$STACK/templates"/*; do
-    if [ "$DRY_RUN" -eq 1 ]; then echo "  would: copy $(basename "$f") -> .specify/templates/overrides/"
-    else cp "$f" "$TARGET/.specify/templates/overrides/"; echo "  - preset override -> .specify/templates/overrides/$(basename "$f")"; fi
-  done
-fi
-
 # .mcp.json, .claude/settings.json, .specify/sdd-speckit.json and the editor files all share the
 # framework's own JSON metadata, so python3 does the merge rather than a fragile shell rewrite.
+# write-config.py then runs scripts/onboard-project.py, which pins the support files, composes
+# the templates for the industry and stack, and wires the harness gates.
 CUSTOM_JOINED="$(printf '%s\n' "${MCP_CUSTOM[@]:-}" | paste -sd'|' -)"
 INPUT_JOINED="$(printf '%s\n' "${MCP_INPUT[@]:-}" | paste -sd'|' -)"
 
 DRY_RUN="$DRY_RUN" TARGET="$TARGET" FRAMEWORK_ROOT="$FRAMEWORK_ROOT" \
 TELEMETRY="$TELEMETRY" OTEL_EXPORTER="$OTEL_EXPORTER" OTEL_ENDPOINT="$OTEL_ENDPOINT" \
+MODE="$MODE" INDUSTRY="$INDUSTRY" GATES="$GATES" GATE_JOINED="$GATE_JOINED" \
 STACK="$STACK" ASSISTANT="$ASSISTANT" SECONDARY="$SECONDARY" MCP="$MCP" \
 EDITOR_CHOICE="$EDITOR_CHOICE" MCP_CUSTOM_JOINED="$CUSTOM_JOINED" MCP_INPUT_JOINED="$INPUT_JOINED" \
 python3 "$FRAMEWORK_ROOT/installer/write-config.py"
@@ -353,7 +537,9 @@ Or, inside an interactive Claude Code session:
   /plugin install sdd-speckit@sdd-speckit-framework
 
 Next step in Claude Code
-  /sdd-speckit:speckit.constitution
+  /sdd-speckit:speckit.onboard
+  It checks the setup. A new project then goes to the constitution and the first feature spec.
+  An existing codebase goes to discovery, a derived constitution and baseline specs.
 EOF
 fi
 if [ "$TARGET_COPILOT" -eq 1 ]; then
@@ -366,6 +552,6 @@ GitHub Copilot — nothing to register
   Settings → Copilot → Coding agent → MCP configuration.
 
 Next step in GitHub Copilot
-  /sdd-speckit-constitution
+  /sdd-speckit-onboard
 EOF
 fi

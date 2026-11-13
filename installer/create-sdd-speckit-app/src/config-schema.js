@@ -1,9 +1,46 @@
 /**
  * The one config shape shared by the installer and /speckit.setup.
  * Adding a question is a change here first, then in prompts.js and speckit.setup.md.
+ *
+ * The harness gates are defined once, in scripts/harness/gates.json. The gate runner and
+ * scripts/onboard-project.py read the same file, so the three never disagree.
  */
+import { readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-export const CONFIG_VERSION = 2;
+export const CONFIG_VERSION = 3;
+
+const FRAMEWORK_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+const GATE_DEFS = JSON.parse(readFileSync(join(FRAMEWORK_ROOT, "scripts", "harness", "gates.json"), "utf8"));
+
+export const MODES = ["greenfield", "brownfield"];
+export const GATES = GATE_DEFS.gates;
+export const GATE_IDS = GATES.map((g) => g.id);
+export const GATE_MODES = GATE_DEFS.modes;
+/** greenfield and brownfield, plus `migrated`: what a record from before 0.3.0 keeps doing. */
+export const GATE_DEFAULTS = GATE_DEFS.defaults;
+
+export function gateDefaults(mode) {
+  return { ...(GATE_DEFAULTS[mode] ?? GATE_DEFAULTS.greenfield) };
+}
+
+/**
+ * Brings a record from an earlier version up to this shape without changing what it does.
+ * A record with no gates gets the `migrated` set: the constitution guard, and nothing new.
+ */
+export function migrateConfig(record) {
+  if (!record || typeof record !== "object") return null;
+  const out = { ...record, configVersion: CONFIG_VERSION };
+  out.mode = MODES.includes(record.mode) ? record.mode : "greenfield";
+  out.industry = record.industry || "none";
+  const gates = record.harness?.gates;
+  out.harness = {
+    ...(record.harness ?? {}),
+    gates: gates ? { ...gateDefaults(out.mode), ...gates } : gateDefaults("migrated"),
+  };
+  return out;
+}
 
 export const ASSISTANTS = [
   { id: "claude", label: "Claude Code", speckitIntegration: "claude", default: true },
@@ -52,10 +89,13 @@ export function defaultConfig() {
   return {
     configVersion: CONFIG_VERSION,
     telemetry: { enabled: false, exporter: "console", endpoint: "" },
+    mode: "greenfield",
+    industry: "none",
     stack: "custom",
     assistant: { primary: "claude", secondary: [] },
     mcp: { catalog: [], custom: [] },
     editor: "vscode",
+    harness: { gates: gateDefaults("greenfield") },
   };
 }
 
@@ -103,7 +143,16 @@ export function validateConfig(cfg) {
     if (cfg.telemetry.exporter === "otlp" && !cfg.telemetry.endpoint)
       errors.push("telemetry.endpoint is required when the exporter is otlp");
   }
+  if (!MODES.includes(cfg.mode)) errors.push(`mode must be one of ${MODES.join(", ")}`);
+  if (!cfg.industry) errors.push("industry must be answered, even if the answer is none");
   if (!cfg.stack) errors.push("stack must be answered");
+  for (const id of GATE_IDS) {
+    const m = cfg.harness?.gates?.[id];
+    if (!GATE_MODES.includes(m)) errors.push(`harness gate "${id}" must be one of ${GATE_MODES.join(", ")}`);
+  }
+  for (const id of Object.keys(cfg.harness?.gates ?? {})) {
+    if (!GATE_IDS.includes(id)) errors.push(`harness gate "${id}" is unknown`);
+  }
   if (!cfg.assistant?.primary) errors.push("assistant.primary must be answered");
   else if (!ASSISTANTS.some((a) => a.id === cfg.assistant.primary))
     errors.push(`assistant.primary "${cfg.assistant.primary}" is unknown`);

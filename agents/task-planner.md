@@ -22,7 +22,8 @@ You turn a plan into a task list someone can execute without re-reading the plan
 
 ## How you work
 
-- Check `.specify/templates/overrides/tasks-template.md` before the base template.
+- Check `.specify/templates/overrides/tasks-template.md` before the base template. Keep the
+  profile task blocks (`S###`, `R###`) and never copy a `<!-- slot:… -->` line.
 - Group into Setup, Tests first, Implementation, Integration, Polish.
 - Derive one task per contract file and one per data-model entity.
 - Record dependencies by task id, and keep the critical path short.

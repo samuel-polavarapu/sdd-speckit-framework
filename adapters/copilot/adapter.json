@@ -6,15 +6,21 @@
   "supportCopy": [
     "templates",
     "mcp",
-    "presets",
+    "profiles",
     "editors",
     "scripts/hooks/_payload.py",
+    "scripts/compose-templates.py",
+    "scripts/onboard-project.py",
+    "scripts/discover-scan.py",
+    "scripts/harness",
     "scripts/hooks/guard-constitution.sh",
     "scripts/hooks/log-artifact-change.sh",
     "docs/RACI.md",
     "docs/MODEL_ROUTING.md"
   ],
-  "excludeSkills": ["telemetry-report"],
+  "excludeSkills": [
+    "telemetry-report"
+  ],
   "models": {
     "$comment": "Claude Code tier -> Copilot model name. A tier set to null leaves `model:` out, so Copilot uses whichever model the user picked. Copilot treats the value as a preference and falls back when the model is not enabled for the account.",
     "opus": "Claude Opus 5.5 (copilot)",
@@ -37,15 +43,85 @@
   },
   "routing": {
     "$comment": "Command -> custom agents it delegates to, mirrored from docs/ARCHITECTURE.md. A command with disallowed-tools gets '<agent>-readonly' variants that lack those tools.",
-    "speckit.constitution": { "agents": ["solution-architect"], "writes": "`.specify/memory/constitution.md`" },
-    "speckit.specify": { "agents": ["spec-author"], "writes": "`spec.md`, `checklists/requirements.md`" },
-    "speckit.clarify": { "agents": ["spec-author", "research-scout"], "writes": "resolved markers in `spec.md`" },
-    "speckit.plan": { "agents": ["solution-architect", "research-scout"], "writes": "`plan.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md`" },
-    "speckit.checklist": { "agents": ["qa-analyst"], "writes": "`checklists/<kind>.md`" },
-    "speckit.tasks": { "agents": ["task-planner"], "writes": "`tasks.md`" },
-    "speckit.analyze": { "agents": ["qa-analyst"], "writes": "**nothing: a report**" },
-    "speckit.implement": { "agents": ["implementer", "code-reviewer"], "writes": "source code" },
-    "speckit.converge": { "agents": ["qa-analyst", "code-reviewer"], "writes": "appended gap tasks" },
-    "speckit.setup": { "agents": [], "writes": "project config" }
+    "speckit.onboard": {
+      "agents": [],
+      "writes": "composed templates, `AGENTS.md`, CI gates, harness wiring"
+    },
+    "speckit.discover": {
+      "agents": [
+        "codebase-cartographer"
+      ],
+      "writes": "`.specify/discovery/report.md`, `inventory.json`"
+    },
+    "speckit.constitution": {
+      "agents": [
+        "solution-architect"
+      ],
+      "writes": "`.specify/memory/constitution.md`"
+    },
+    "speckit.baseline": {
+      "agents": [
+        "codebase-cartographer",
+        "spec-author",
+        "solution-architect"
+      ],
+      "writes": "`specs/_baseline/<area>/spec.md`, `.specify/adoption-roadmap.md`"
+    },
+    "speckit.specify": {
+      "agents": [
+        "spec-author"
+      ],
+      "writes": "`spec.md`, `checklists/requirements.md`"
+    },
+    "speckit.clarify": {
+      "agents": [
+        "spec-author",
+        "research-scout"
+      ],
+      "writes": "resolved markers in `spec.md`"
+    },
+    "speckit.plan": {
+      "agents": [
+        "solution-architect",
+        "research-scout"
+      ],
+      "writes": "`plan.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md`"
+    },
+    "speckit.checklist": {
+      "agents": [
+        "qa-analyst"
+      ],
+      "writes": "`checklists/<kind>.md`"
+    },
+    "speckit.tasks": {
+      "agents": [
+        "task-planner"
+      ],
+      "writes": "`tasks.md`"
+    },
+    "speckit.analyze": {
+      "agents": [
+        "qa-analyst"
+      ],
+      "writes": "**nothing: a report**"
+    },
+    "speckit.implement": {
+      "agents": [
+        "implementer",
+        "code-reviewer"
+      ],
+      "writes": "source code, `implementation-log.md`"
+    },
+    "speckit.converge": {
+      "agents": [
+        "qa-analyst",
+        "code-reviewer"
+      ],
+      "writes": "`converge-report.md`, appended gap tasks"
+    },
+    "speckit.setup": {
+      "agents": [],
+      "writes": "project config"
+    }
   }
 }

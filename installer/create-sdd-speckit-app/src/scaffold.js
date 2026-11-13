@@ -1,11 +1,12 @@
 /**
- * Writes the project. Called only after all five questions are answered and confirmed.
+ * Writes the project. Called only after every question is answered and confirmed.
  * Every function returns a list of actions, so --dry-run can print exactly what would happen.
  */
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-import { findPreset, presetOverrides, presetVscodeExtensions } from "./presets-map.js";
+import { findProfile, profileVscodeExtensions } from "./profiles-map.js";
+import { onboardProject } from "./onboard.js";
 import { catalogFragment, customFragment, pendingOauth } from "./mcp-map.js";
 import { CONFIG_VERSION, speckitIntegrationFor, targetsFor, targetList } from "./config-schema.js";
 import { renderCopilot, writeCopilot } from "./copilot.js";
@@ -81,7 +82,7 @@ export function initSpeckit(target, cfg, { dryRun, skipSpeckit }) {
   return { log, delegated: true, ...base, ...(dryRun ? { dryRun: true } : {}) };
 }
 
-/* ---------------------------------------------- 2. plugin files + overrides */
+/* ------------------------------------------------------------ 2. plugin files */
 
 export function copyFrameworkFiles(target, frameworkRoot, cfg, { dryRun }) {
   const log = [];
@@ -97,18 +98,6 @@ export function copyFrameworkFiles(target, frameworkRoot, cfg, { dryRun }) {
     }
   }
 
-  const preset = findPreset(frameworkRoot, cfg.stack);
-  for (const [from, rel] of presetOverrides(preset)) {
-    if (!existsSync(from)) continue;
-    const to = join(target, rel);
-    if (dryRun) log.push(`would copy preset override -> ${rel}`);
-    else {
-      mkdirSync(dirname(to), { recursive: true });
-      cpSync(from, to);
-      log.push(`preset override -> ${rel}`);
-    }
-  }
-  if (preset && !presetOverrides(preset).length) log.push(`preset "${cfg.stack}" contributes no template override`);
   return log;
 }
 
@@ -196,24 +185,39 @@ export function writeSettings(target, cfg, { dryRun }) {
   return log;
 }
 
+/**
+ * Writes the installer's answers. Anything else already in the record is kept: the harness globs
+ * and commands a team has tuned, and any key a later version adds. scripts/onboard-project.py
+ * then fills in the harness defaults the first time.
+ */
 export function writeConfigRecord(target, cfg, extra, { dryRun }) {
   const log = [];
+  const p = join(target, ".specify", "sdd-speckit.json");
+  const existing = readJson(p, {});
+  const customIds = new Set((cfg.mcp.custom ?? []).map((c) => c.id));
   const record = {
+    ...existing,
     configVersion: CONFIG_VERSION,
     generatedBy: "create-sdd-speckit-app",
     telemetry: cfg.telemetry,
+    mode: cfg.mode,
+    industry: cfg.industry,
     stack: cfg.stack,
     assistant: {
       ...cfg.assistant,
       targets: targetList(cfg.assistant),
       speckitIntegration: speckitIntegrationFor(cfg.assistant.primary),
     },
-    mcp: { catalog: cfg.mcp.catalog ?? [], custom: cfg.mcp.custom ?? [] },
+    mcp: {
+      catalog: [...new Set([...(existing.mcp?.catalog ?? []), ...(cfg.mcp.catalog ?? [])])],
+      custom: [...(existing.mcp?.custom ?? []).filter((c) => !customIds.has(c.id)), ...(cfg.mcp.custom ?? [])],
+    },
     editor: cfg.editor,
+    harness: { ...(existing.harness ?? {}), gates: cfg.harness.gates },
     ...extra,
   };
-  const p = join(target, ".specify", "sdd-speckit.json");
   if (dryRun) log.push("would write .specify/sdd-speckit.json");
+  else if (JSON.stringify(existing) === JSON.stringify(record)) log.push(".specify/sdd-speckit.json already current");
   else writeJson(p, record, log, "wrote .specify/sdd-speckit.json");
   return log;
 }
@@ -238,7 +242,7 @@ export function writeEditorFiles(target, frameworkRoot, cfg, { dryRun }) {
   const assistants = targetList(cfg.assistant).map((id) => map.assistants?.[id]).filter(Boolean);
   const presetExtras = [
     ...(entry.mergesAssistantExtensions ? assistants.flatMap((a) => a.vscodeExtensions ?? []) : []),
-    ...(entry.mergesPresetExtensions ? presetVscodeExtensions(findPreset(frameworkRoot, cfg.stack)) : []),
+    ...(entry.mergesPresetExtensions ? profileVscodeExtensions(findProfile(frameworkRoot, "stack", cfg.stack)) : []),
   ];
 
   for (const c of entry.copy) {
@@ -316,6 +320,16 @@ export function writeCollector(target, frameworkRoot, cfg, { dryRun }) {
   return log;
 }
 
+/* ------------------------------------------------- 8. templates and harness */
+
+/**
+ * Pins the support files, composes the templates for the industry and stack, and wires the gates.
+ * Runs last: it reads the record, and for a Copilot target it needs the render already on disk.
+ */
+export function writeTemplatesAndHarness(target, frameworkRoot, cfg, { dryRun }) {
+  return onboardProject(target, frameworkRoot, cfg, { dryRun }).log;
+}
+
 /* ------------------------------------------------------------------ driver */
 
 export function scaffold(targetDir, frameworkRoot, cfg, opts = {}) {
@@ -335,6 +349,7 @@ export function scaffold(targetDir, frameworkRoot, cfg, opts = {}) {
     { speckitDelegated: speckit.delegated, speckitFallbackReason: speckit.fallbackReason ?? null },
     { dryRun }
   );
+  const harness = writeTemplatesAndHarness(target, frameworkRoot, cfg, { dryRun });
 
   return {
     target,
@@ -344,6 +359,6 @@ export function scaffold(targetDir, frameworkRoot, cfg, opts = {}) {
     registration: pluginRegistration(frameworkRoot),
     pendingOauth: mcp.pending,
     servers: Object.keys(mcp.servers),
-    log: [...speckit.log, ...files, ...mcp.log, ...settings, ...editors, ...copilot, ...collector, ...record],
+    log: [...speckit.log, ...files, ...mcp.log, ...settings, ...editors, ...copilot, ...collector, ...record, ...harness],
   };
 }

@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "kind": "industry",
+  "id": "public-sector",
+  "label": "Public sector and government",
+  "description": "US federal and public-sector systems: FIPS 199 categorisation, NIST SP 800-53 control traceability, FedRAMP authorisation evidence, validated cryptography and Section 508 accessibility.",
+  "code": "PS",
+  "standards": [
+    {
+      "id": "nist-sp-800-53",
+      "title": "NIST SP 800-53",
+      "version": "Rev. 5",
+      "url": "https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final",
+      "reviewedOn": "2026-11-13"
+    },
+    {
+      "id": "fedramp",
+      "title": "FedRAMP baselines",
+      "version": "Rev. 5",
+      "url": "https://www.fedramp.gov/",
+      "reviewedOn": "2026-11-13"
+    },
+    {
+      "id": "fips-199",
+      "title": "FIPS 199",
+      "version": "February 2004",
+      "url": "https://csrc.nist.gov/pubs/fips/199/final",
+      "reviewedOn": "2026-11-13"
+    },
+    {
+      "id": "fips-140-3",
+      "title": "FIPS 140-3",
+      "version": "March 2019",
+      "url": "https://csrc.nist.gov/pubs/fips/140-3/final",
+      "reviewedOn": "2026-11-13"
+    },
+    {
+      "id": "section-508",
+      "title": "Section 508",
+      "version": "Revised 508 Standards (36 CFR 1194), incorporating WCAG 2.0 AA",
+      "url": "https://www.access-board.gov/ict/",
+      "reviewedOn": "2026-11-13"
+    }
+  ],
+  "checklistKinds": [
+    "requirements",
+    "security",
+    "privacy",
+    "accessibility",
+    "release",
+    "ato-readiness",
+    "section-508"
+  ],
+  "harness": {
+    "sensitivePatterns": []
+  }
+}

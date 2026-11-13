@@ -1,0 +1,18 @@
+# Owners for the spec-driven development artifacts. Replace each placeholder with a team or a
+# user. GitHub requests a review from the owner of every path a pull request changes.
+
+# The constitution outranks every other document. Its owners approve each amendment.
+/.specify/memory/                @ORG/REPLACE-architecture-owners
+
+# The harness: gate modes, pinned framework files and the CI workflow that runs them.
+/.specify/sdd-speckit.json       @ORG/REPLACE-engineering-leads
+/.specify/sdd-speckit/           @ORG/REPLACE-engineering-leads
+/.github/workflows/sdd-gates.yml @ORG/REPLACE-engineering-leads
+/.claude/settings.json           @ORG/REPLACE-engineering-leads
+
+# Specs are reviewed by the people who own the requirement, not only by engineers.
+/specs/                          @ORG/REPLACE-product-owners
+
+# Architecture decisions.
+/docs/adr/                       @ORG/REPLACE-architecture-owners
+# slot:rules

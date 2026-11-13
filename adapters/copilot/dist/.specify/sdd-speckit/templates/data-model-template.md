@@ -56,6 +56,7 @@
 - **Backward:** [The revert, or "not reversible" and the reason.]
 - **Backfill:** [Needed or not. If needed, the volume and the plan.]
 
+<!-- slot:sections-before-open-questions -->
 ## Open questions
 
 | # | Question | Blocks |

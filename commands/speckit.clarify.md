@@ -11,8 +11,8 @@ You are removing ambiguity from an existing spec. You are not adding scope.
 
 ## Read first
 
-1. `specs/<NNN>-<slug>/spec.md` — the target. Default to the highest `NNN` when `$ARGUMENTS`
-   is empty.
+1. `specs/<NNN>-<slug>/spec.md` — the target. With no `$ARGUMENTS`, default to the feature in
+   `.specify/.active-spec`, then to the highest `NNN`.
 2. `specs/<NNN>-<slug>/checklists/requirements.md`.
 3. `.specify/memory/constitution.md`.
 

@@ -10,6 +10,7 @@
 - No tech stack, no API shapes, no schema, no library names. Those belong in `plan.md`.
 - Mark every unknown as `[NEEDS CLARIFICATION: the specific question]`. Do not guess.
 - Every requirement must be testable by someone who cannot read the code.
+<!-- slot:guardrails-items -->
 
 ## User scenarios
 
@@ -28,6 +29,7 @@ As a [role], I want [capability], so that [outcome].
 - [Condition] → [expected behaviour]
 - [Condition] → [expected behaviour]
 - [NEEDS CLARIFICATION: what happens when …?]
+<!-- slot:edge-cases-items -->
 
 ## Requirements
 
@@ -46,6 +48,7 @@ As a [role], I want [capability], so that [outcome].
 | NFR-001 | [Performance, availability, or scale statement.] | [Number and unit.] | [Where.] |
 | NFR-002 | [Security or privacy statement.] | [Standard.] | [Where.] |
 | NFR-003 | [Accessibility statement.] | [Level.] | [Where.] |
+<!-- slot:nfr-rows -->
 
 ### Key entities
 
@@ -53,6 +56,7 @@ As a [role], I want [capability], so that [outcome].
 |---|---|---|---|
 | [Name] | [What it represents in the domain.] | [Attributes, no types.] | [Links to other entities.] |
 
+<!-- slot:sections-after-requirements -->
 ## Out of scope
 
 - [Explicitly excluded item, and why.]
@@ -83,3 +87,4 @@ As a [role], I want [capability], so that [outcome].
 - [ ] Success criteria are measurable
 - [ ] Scope boundary is explicit
 - [ ] Checked against the constitution non-negotiables
+<!-- slot:review-checklist-items -->
