@@ -1,8 +1,26 @@
 # Phase reference — entry conditions, exit conditions, failure modes
 
+## 0. Onboarding — `/sdd-speckit-onboard`, `speckit.discover`, `speckit.baseline`
+
+**Onboard. Entry:** The installer or the plugin is in place. **Exit:** Templates composed for the
+industry and stack, `AGENTS.md` written, gates wired and each gate's mode reported.
+**Common failure:** Source and test globs that do not match the repository. Every gate is then
+silent. Check them in `.specify/sdd-speckit.json`.
+
+**Discover (brownfield). Entry:** An existing codebase. **Exit:** `.specify/discovery/report.md`,
+with evidence and a confidence on every row, and the unknowns listed as questions.
+**Common failure:** Opinion in place of observation, or a guess at intent. The report says what
+the code does. A person answers what it was meant to do.
+
+**Baseline (brownfield). Entry:** A discovery report and a constitution. **Exit:** One as-built
+spec per high-priority area in `specs/_baseline/`, and an adoption roadmap with an exit criterion
+for each gate.
+**Common failure:** Writing a suspected defect as a requirement. It goes in Known gaps.
+
 ## 1. Constitution — `/sdd-speckit-constitution`
 
-**Entry:** A new project, or an amendment the team has agreed to.
+**Entry:** A new project, or an amendment the team has agreed to. In a brownfield project, a discovery
+report: each principle is derived from it and marked observed or aspirational.
 **Exit:** Three to five principles, gates N1–N4 present, a version, an amendment-log row.
 **Common failure:** Principles nobody can fail. "Write good code" is not a gate. A gate states a
 rule and how it is verified.

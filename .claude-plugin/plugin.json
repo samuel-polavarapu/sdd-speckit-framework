@@ -1,7 +1,7 @@
 {
   "name": "sdd-speckit",
   "displayName": "SDD Speckit Framework",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Spec-Driven Development starter kit: Speckit phase commands, layered industry and stack templates, greenfield and brownfield onboarding, phase-matched subagents, and harness gates for Claude Code and GitHub Copilot.",
   "author": {
     "name": "SDD Speckit Framework maintainers"

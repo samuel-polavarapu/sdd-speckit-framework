@@ -5,6 +5,9 @@ pattern-following does not.
 
 | Phase | Primary work | Tier | Why |
 |---|---|---|---|
+| Onboard | Run the onboarding script, fill project notes | **sonnet** | Scripted. Little judgment |
+| Discover | Read and map an existing codebase | **sonnet** | Broad, careful reading. Observation, not design |
+| Baseline | As-built specs and the adoption roadmap | **opus** | Infers behaviour from code and plans the gate ratchet |
 | Constitution | Governance and non-negotiables | **opus** | High-stakes, low-frequency, must be right |
 | Specify / Clarify | Requirements, disambiguation | **sonnet** | Balanced, conversational |
 | Plan | Architecture and technical design | **opus** | Complex reasoning, cross-cutting decisions |

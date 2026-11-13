@@ -1,6 +1,6 @@
 {
   "name": "create-sdd-speckit-app",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Interactive installer for the SDD Speckit Framework: scaffolds a spec-driven project wired to Claude Code and/or GitHub Copilot, MCP connectors and your editor.",
   "type": "module",
   "bin": {
