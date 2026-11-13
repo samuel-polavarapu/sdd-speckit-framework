@@ -30,6 +30,9 @@ const CASES = {
   "detected mode, Copilot only, telemetry, JetBrains": [
     "--telemetry=on", "--otel-endpoint=http://localhost:4317", "--editor=jetbrains", "--assistant=copilot", "--gates=warn", "--industry=financial-services",
   ],
+  "Factory Droid primary, Copilot secondary": [
+    "--assistant=factory", "--secondary-assistants=copilot", "--industry=public-sector", "--stack=dotnet-aspire",
+  ],
   "no flags at all": [],
 };
 

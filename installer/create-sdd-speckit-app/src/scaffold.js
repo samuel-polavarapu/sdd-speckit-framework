@@ -38,9 +38,9 @@ function writeJson(p, data, log, label) {
 
 /* ------------------------------------------------------------ 1. .specify/ */
 
-/** Speckit integrations to install: the primary's, plus Claude Code's or Copilot's when either is a target. */
+/** Speckit integrations to install: the primary's, plus Claude Code's, Copilot's or Droid's when one is a target. */
 export function speckitIntegrations(cfg) {
-  const ids = [cfg.assistant.primary, ...(cfg.assistant.secondary ?? []).filter((s) => s === "claude" || s === "copilot")];
+  const ids = [cfg.assistant.primary, ...(cfg.assistant.secondary ?? []).filter((s) => ["claude", "copilot", "factory"].includes(s))];
   return [...new Set(ids.map(speckitIntegrationFor))];
 }
 
@@ -111,6 +111,16 @@ export function pluginRegistration(frameworkRoot) {
     shell: [marketplaceCmd, installCmd],
     slash: [`/plugin marketplace add ${frameworkRoot}`, "/plugin install sdd-speckit@sdd-speckit-framework"],
     devLoad: `claude --plugin-dir ${frameworkRoot}`,
+  };
+}
+
+/** The Droid plugin lives in the marketplace at the framework root (.factory-plugin/marketplace.json). */
+export function factoryRegistration(frameworkRoot) {
+  return {
+    shell: [
+      `droid plugin marketplace add ${frameworkRoot}`,
+      "droid plugin install sdd-speckit@sdd-speckit-framework --scope project",
+    ],
   };
 }
 
@@ -357,6 +367,7 @@ export function scaffold(targetDir, frameworkRoot, cfg, opts = {}) {
     speckit,
     targets: targetsFor(cfg.assistant),
     registration: pluginRegistration(frameworkRoot),
+    factoryRegistration: factoryRegistration(frameworkRoot),
     pendingOauth: mcp.pending,
     servers: Object.keys(mcp.servers),
     log: [...speckit.log, ...files, ...mcp.log, ...settings, ...editors, ...copilot, ...collector, ...record, ...harness],

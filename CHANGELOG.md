@@ -4,6 +4,27 @@ All notable changes to `sdd-speckit-framework`. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning is
 [semantic](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Factory Droid plugin.** `installer/create-sdd-speckit-app/src/factory.js` renders a native
+  Droid plugin into `adapters/factory/dist/` from the Claude Code sources: phase skills
+  (`/sdd-speckit-<phase>`), droids with mapped models and tools, a read-only `qa-analyst-readonly`,
+  the shared skills, and harness hooks on `Create|Edit|ApplyPatch`. The repo-root
+  `.factory-plugin/marketplace.json` makes it installable with
+  `droid plugin install sdd-speckit@sdd-speckit-framework`. `--emit=factory`,
+  `npm run render:factory` and `npm run check:factory`. See `docs/FACTORY.md`.
+- `<!-- factory-only ... -->` passages in sources: unwrapped for Droid, dropped for Copilot.
+- `--assistant=factory` in both installers. It records the `factory` target, uses Speckit's
+  `droid` integration, writes no Claude Code files unless `claude` is also chosen, and prints the
+  Droid plugin install commands.
+
+### Changed
+
+- `scripts/harness/hook.sh` does not stand down for a `.claude/settings.json` runner when
+  `SDD_SPECKIT_HOST=factory`, because Droid never runs that file.
+
 ## [0.3.0] — 2026-11-13
 
 Artifact templates that vary by industry and technology, onboarding for new and existing

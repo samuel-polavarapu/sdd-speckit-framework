@@ -138,6 +138,9 @@ Keep these apart. They are unrelated.
 <!-- copilot-only
 | **GitHub Copilot hooks** | Lifecycle event handlers — `preToolUse`, `postToolUse` — that run shell commands | `.github/hooks/sdd-speckit.json` |
 -->
+<!-- factory-only
+| **Factory Droid hooks** | Lifecycle event handlers — `PreToolUse`, `PostToolUse` — that run shell commands | the plugin's `hooks/hooks.json` |
+-->
 | **Speckit extension hooks** | Extension points that Speckit extensions declare | `.specify/extensions.yml` |
 
 ## Command naming
@@ -157,6 +160,14 @@ This framework's phases are skills in `.github/skills/`, invoked as `/sdd-specki
 with a hyphen and invoked as `/speckit-plan`. The two sets do not collide. The `/speckit-*` form is
 Speckit's own scripted workflow. The `/sdd-speckit-*` form is this framework's, which routes the
 work to a phase-matched custom agent with a pinned model tier and tool set.
+-->
+<!-- factory-only
+This plugin's phases are skills, invoked as `/sdd-speckit-plan`. Each one runs its work in a
+phase-matched droid (`droids/`) that pins the model and the tool set.
+
+Speckit's own copies, if a project installs them, are named `/speckit-plan`. The two sets do not
+collide. The `/speckit-*` form is Speckit's own scripted workflow. The `/sdd-speckit-*` form is
+this framework's.
 -->
 
 ## More detail

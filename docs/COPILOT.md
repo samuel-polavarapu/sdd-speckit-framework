@@ -22,27 +22,6 @@ agent reads them from the default branch.
 
 ## How each Claude Code primitive maps
 
-```mermaid
-flowchart LR
-    subgraph Sources["Claude Code sources (canonical)"]
-        C["commands/speckit.*.md"]
-        A["agents/*.md"]
-        S["skills/*/"]
-        H["hooks/hooks.json"]
-    end
-    R(["copilot.js<br/>+ adapter.json"])
-    subgraph Copilot[".github/ (rendered)"]
-        CS["skills/sdd-speckit-*/"]
-        CA["agents/*.agent.md"]
-        CK["skills/*/"]
-        CH["hooks/sdd-speckit.json"]
-    end
-    C --> R --> CS
-    A --> R --> CA
-    S --> R --> CK
-    H --> R --> CH
-```
-
 | Claude Code | GitHub Copilot | Notes |
 |---|---|---|
 | Slash command `commands/speckit.plan.md` → `/sdd-speckit:speckit.plan` | Skill `.github/skills/sdd-speckit-plan/SKILL.md` → `/sdd-speckit-plan` | `disable-model-invocation: true`. A phase is a deliberate act, so the model does not start one by itself. |

@@ -57,7 +57,7 @@
     "PRIMARY_ASSISTANT": {
       "type": "string",
       "title": "Primary AI assistant",
-      "description": "Speckit integration key: claude, copilot, cursor-agent or generic. Use the installer's --assistant=both to also render the GitHub Copilot files.",
+      "description": "Speckit integration key: claude, copilot, droid, cursor-agent or generic. Use the installer's --assistant=both to also render the GitHub Copilot files, or --assistant=factory for Factory Droid.",
       "default": "claude"
     },
     "EDITOR_CHOICE": {

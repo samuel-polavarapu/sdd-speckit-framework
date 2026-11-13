@@ -9,7 +9,9 @@
   "scripts": {
     "test": "node --test",
     "render:copilot": "node bin/cli.js --emit=copilot ../../adapters/copilot/dist",
-    "check:copilot": "node bin/cli.js --emit=copilot --check --strict ../../adapters/copilot/dist"
+    "check:copilot": "node bin/cli.js --emit=copilot --check --strict ../../adapters/copilot/dist",
+    "render:factory": "node bin/cli.js --emit=factory ../../adapters/factory/dist",
+    "check:factory": "node bin/cli.js --emit=factory --check ../../adapters/factory/dist"
   },
   "files": [
     "bin",
@@ -26,7 +28,8 @@
     "speckit",
     "claude-code",
     "scaffold",
-    "github-copilot"
+    "github-copilot",
+    "factory-droid"
   ],
   "license": "MIT"
 }

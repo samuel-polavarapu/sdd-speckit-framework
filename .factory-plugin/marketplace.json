@@ -1,0 +1,16 @@
+{
+  "name": "sdd-speckit-framework",
+  "description": "Spec-Driven Development starter kit for Factory Droid, packaging the Speckit workflow. The plugin is rendered from the Claude Code sources into adapters/factory/dist/.",
+  "owner": {
+    "name": "SDD Speckit Framework maintainers"
+  },
+  "plugins": [
+    {
+      "name": "sdd-speckit",
+      "description": "Speckit phase skills, phase-matched droids, workflow skills and harness gate hooks.",
+      "source": "./adapters/factory/dist",
+      "category": "development",
+      "tags": ["spec-driven-development", "speckit", "sdd"]
+    }
+  ]
+}

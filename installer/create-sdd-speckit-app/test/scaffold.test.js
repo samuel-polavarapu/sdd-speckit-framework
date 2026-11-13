@@ -33,6 +33,21 @@ test("--assistant=both writes the Copilot files too", () => {
   assert.ok(existsSync(join(dir, ".github", "skills", "sdd-speckit-plan", "SKILL.md")));
 });
 
+test("--assistant=factory sets up Droid without Claude Code files", () => {
+  const dir = tmp();
+  const r = cli([dir, ...BASE, "--assistant=factory", "--stack=python-fastapi"]);
+  assert.equal(r.status, 0, r.stderr);
+  const record = JSON.parse(readFileSync(join(dir, ".specify", "sdd-speckit.json"), "utf8"));
+  assert.deepEqual(record.assistant.targets, ["factory"]);
+  assert.equal(record.assistant.primary, "factory");
+  assert.ok(!existsSync(join(dir, ".claude")), ".claude/ is not written for a Droid-only project");
+  assert.ok(!existsSync(join(dir, "CLAUDE.md")));
+  assert.ok(existsSync(join(dir, "AGENTS.md")));
+  assert.ok(existsSync(join(dir, ".specify", "sdd-speckit", "scripts", "harness", "gate.py")));
+  assert.match(r.stdout, /droid plugin install sdd-speckit@sdd-speckit-framework --scope project/);
+  assert.match(r.stdout, /Factory Droid:\s+\/sdd-speckit-onboard/);
+});
+
 test("a second run changes nothing", () => {
   const dir = tmp();
   const args = [dir, ...BASE, "--assistant=both", "--stack=web-fullstack-node", "--mcp=github"];

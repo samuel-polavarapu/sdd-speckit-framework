@@ -44,8 +44,9 @@ That file is the project constitution. Every other phase is checked against it, 
 would change the rules with no version bump and no amendment-log entry.
 
 Amend it through the constitution phase: /sdd-speckit:speckit.constitution in Claude Code, or
-/sdd-speckit-constitution in GitHub Copilot. That phase bumps the version, records the change in
-Article V, and reports which existing artifacts the amendment now conflicts with.
+/sdd-speckit-constitution in GitHub Copilot and Factory Droid. That phase bumps the version,
+records the change in Article V, and reports which existing artifacts the amendment now
+conflicts with.
 
 The phase takes the unlock marker itself:
   mkdir -p .specify/memory && touch .specify/.constitution-unlock

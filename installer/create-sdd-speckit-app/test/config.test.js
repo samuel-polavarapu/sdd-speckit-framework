@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  defaultConfig, validateConfig, normalizeAssistant, targetsFor, targetList, validateCustomMcp,
+  defaultConfig, validateConfig, normalizeAssistant, targetsFor, targetList, validateCustomMcp, speckitIntegrationFor,
 } from "../src/config-schema.js";
 
 test("the default config is valid", () => {
@@ -13,10 +13,19 @@ test("both = claude primary, copilot secondary", () => {
   assert.deepEqual(normalizeAssistant({ primary: "claude", secondary: ["claude", "copilot", "copilot"] }).secondary, ["copilot"]);
 });
 
-test("targets: claude files unless copilot is the only one chosen", () => {
-  assert.deepEqual(targetsFor({ primary: "copilot", secondary: [] }), { claude: false, copilot: true });
-  assert.deepEqual(targetsFor({ primary: "cursor", secondary: [] }), { claude: true, copilot: false });
+test("targets: claude files unless copilot or factory is chosen without it", () => {
+  assert.deepEqual(targetsFor({ primary: "copilot", secondary: [] }), { claude: false, copilot: true, factory: false });
+  assert.deepEqual(targetsFor({ primary: "cursor", secondary: [] }), { claude: true, copilot: false, factory: false });
+  assert.deepEqual(targetsFor({ primary: "factory", secondary: [] }), { claude: false, copilot: false, factory: true });
   assert.deepEqual(targetList({ primary: "claude", secondary: ["copilot"] }), ["claude", "copilot"]);
+  assert.deepEqual(targetList({ primary: "factory", secondary: ["claude"] }), ["claude", "factory"]);
+});
+
+test("factory is a known assistant with Speckit's droid integration", () => {
+  const cfg = defaultConfig();
+  cfg.assistant.primary = "factory";
+  assert.deepEqual(validateConfig(cfg), []);
+  assert.equal(speckitIntegrationFor("factory"), "droid");
 });
 
 test("validateConfig rejects unknown answers", () => {

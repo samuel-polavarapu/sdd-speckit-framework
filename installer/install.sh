@@ -67,8 +67,9 @@ Options (identical to create-sdd-speckit-app)
   --mode=<greenfield|brownfield|auto>   Default: auto (brownfield when the directory holds code)
   --industry=<id>            none|$(profile_ids industries | tr '\n' '|' | sed 's/|$//')   Default: none
   --stack=<id>               custom|auto|$(profile_ids stacks | tr '\n' '|' | sed 's/|$//')   Default: custom
-  --assistant=<claude|copilot|both|cursor|other>
+  --assistant=<claude|copilot|factory|both|cursor|other>
                              both = Claude Code and GitHub Copilot
+                             factory = Factory Droid (installs the plugin in .factory-plugin/)
   --secondary-assistants=<a,b>
   --mcp=<ids>                Comma separated. See mcp/catalog.json
   --mcp-custom=<name>:<transport>:<url-or-command>   Repeatable
@@ -267,7 +268,7 @@ if [ "$YES" -eq 0 ]; then
   # 5 primary assistant
   adef="$ASSISTANT"
   case ",$SECONDARY," in *,copilot,*) [ "$ASSISTANT" = "claude" ] && adef="both" ;; esac
-  ask_choice ASSISTANT "Primary AI coding assistant?" "$adef" "claude" "copilot" "both" "cursor" "other"
+  ask_choice ASSISTANT "Primary AI coding assistant?" "$adef" "claude" "copilot" "factory" "both" "cursor" "other"
   SECONDARY=""
   if [ "$ASSISTANT" != "both" ]; then
     read -r -p "Secondary assistants, comma separated (blank for none): " SECONDARY || true
@@ -475,19 +476,21 @@ if [ "$ASSISTANT" = "both" ]; then
 fi
 chosen=",$ASSISTANT,$SECONDARY,"
 TARGET_COPILOT=0; case "$chosen" in *,copilot,*) TARGET_COPILOT=1 ;; esac
+TARGET_FACTORY=0; case "$chosen" in *,factory,*) TARGET_FACTORY=1 ;; esac
 TARGET_CLAUDE=0; case "$chosen" in *,claude,*) TARGET_CLAUDE=1 ;; esac
-[ "$TARGET_COPILOT" -eq 0 ] && TARGET_CLAUDE=1
+[ "$TARGET_COPILOT" -eq 0 ] && [ "$TARGET_FACTORY" -eq 0 ] && TARGET_CLAUDE=1
 
 integration_for() {
   case "$1" in
     claude|copilot) echo "$1" ;;
+    factory) echo "droid" ;;
     cursor) echo "cursor-agent" ;;
     *) echo "generic" ;;
   esac
 }
 integrations="$(integration_for "$ASSISTANT")"
-for s in claude copilot; do
-  case "$chosen" in *,$s,*) [ "$s" != "$ASSISTANT" ] && integrations="$integrations $s" ;; esac
+for s in claude copilot factory; do
+  case "$chosen" in *,$s,*) [ "$s" != "$ASSISTANT" ] && integrations="$integrations $(integration_for "$s")" ;; esac
 done
 
 if [ "$NO_SPECKIT" -eq 0 ] && command -v uvx >/dev/null 2>&1; then
@@ -552,6 +555,19 @@ GitHub Copilot — nothing to register
   Settings → Copilot → Coding agent → MCP configuration.
 
 Next step in GitHub Copilot
+  /sdd-speckit-onboard
+EOF
+fi
+if [ "$TARGET_FACTORY" -eq 1 ]; then
+cat <<EOF
+
+Factory Droid — install the plugin
+  droid plugin marketplace add $FRAMEWORK_ROOT
+  droid plugin install sdd-speckit@sdd-speckit-framework --scope project
+  Or use /plugins inside a session. For a shared repo, point the marketplace at your published
+  copy of the framework (owner/repo) rather than a local path. See docs/FACTORY.md.
+
+Next step in Factory Droid
   /sdd-speckit-onboard
 EOF
 fi

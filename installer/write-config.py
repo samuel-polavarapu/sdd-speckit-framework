@@ -38,12 +38,13 @@ if ASSISTANT == "both":  # same normalization as config-schema.js normalizeAssis
 SECONDARY = [s for i, s in enumerate(SECONDARY) if s != ASSISTANT and s not in SECONDARY[:i]]
 _CHOSEN = {ASSISTANT, *SECONDARY}
 TARGET_COPILOT = "copilot" in _CHOSEN
-TARGET_CLAUDE = "claude" in _CHOSEN or not TARGET_COPILOT
-TARGETS = [t for t, on in (("claude", TARGET_CLAUDE), ("copilot", TARGET_COPILOT)) if on]
+TARGET_FACTORY = "factory" in _CHOSEN
+TARGET_CLAUDE = "claude" in _CHOSEN or not (TARGET_COPILOT or TARGET_FACTORY)
+TARGETS = [t for t, on in (("claude", TARGET_CLAUDE), ("copilot", TARGET_COPILOT), ("factory", TARGET_FACTORY)) if on]
 MCP_IDS = [s for s in os.environ.get("MCP", "").replace(" ", "").split(",") if s]
 EDITOR = os.environ.get("EDITOR_CHOICE", "vscode")
 
-INTEGRATION = {"claude": "claude", "copilot": "copilot", "cursor": "cursor-agent"}.get(ASSISTANT, "generic")
+INTEGRATION = {"claude": "claude", "copilot": "copilot", "factory": "droid", "cursor": "cursor-agent"}.get(ASSISTANT, "generic")
 RALLY_PLACEHOLDER = "RALLY_MCP_URL_PLACEHOLDER"
 
 

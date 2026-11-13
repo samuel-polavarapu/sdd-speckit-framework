@@ -1,0 +1,47 @@
+{
+  "$comment": "Drives installer/create-sdd-speckit-app/src/factory.js, which renders a native Factory Droid plugin into adapters/factory/dist/ from the Claude Code sources (commands/, agents/, skills/, hooks). The repo-root .factory-plugin/marketplace.json points Droid at that directory. Edit the sources, not the render. Formats checked against docs.factory.com (plugins, custom droids, skills, hooks) on 2026-11-13; see docs/FACTORY.md.",
+  "verifiedOn": "2026-11-13",
+  "pluginName": "sdd-speckit",
+  "commandSkillPrefix": "sdd-speckit-",
+  "rootVar": "${DROID_PLUGIN_ROOT}",
+  "supportCopy": [
+    "templates",
+    "mcp",
+    "profiles",
+    "editors",
+    "scripts/hooks/_payload.py",
+    "scripts/hooks/log-artifact-change.sh",
+    "scripts/hooks/guard-constitution.sh",
+    "scripts/compose-templates.py",
+    "scripts/onboard-project.py",
+    "scripts/discover-scan.py",
+    "scripts/harness",
+    "docs/RACI.md",
+    "docs/MODEL_ROUTING.md"
+  ],
+  "excludeSkills": [
+    "telemetry-report"
+  ],
+  "models": {
+    "$comment": "Claude Code tier -> Droid model id. A tier set to null writes `model: inherit`, so the droid uses the session's model.",
+    "opus": "claude-opus-5-5",
+    "sonnet": "claude-sonnet-5-5",
+    "haiku": "claude-haiku-5-5"
+  },
+  "tools": {
+    "$comment": "Claude Code tool -> Droid tool ids (case-sensitive). An empty list drops the tool. Droid always adds TodoWrite and Skill.",
+    "Read": ["Read", "LS"],
+    "Grep": ["Grep"],
+    "Glob": ["Glob"],
+    "Write": ["Create"],
+    "Edit": ["Edit", "ApplyPatch"],
+    "NotebookEdit": [],
+    "Bash": ["Execute"],
+    "WebFetch": ["FetchUrl"],
+    "WebSearch": ["WebSearch"]
+  },
+  "hooks": {
+    "$comment": "Droid tool names for the file-writing hooks. Claude's Write is Droid's Create.",
+    "writeMatcher": "Create|Edit|ApplyPatch"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "PreToolUse": [
+    {
+      "matcher": "Create|Edit|ApplyPatch",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "SDD_SPECKIT_HOST=factory sh \"${DROID_PLUGIN_ROOT}/scripts/harness/hook.sh\" pre",
+          "timeout": 15
+        }
+      ]
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": "Create|Edit|ApplyPatch",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "SDD_SPECKIT_HOST=factory sh \"${DROID_PLUGIN_ROOT}/scripts/hooks/log-artifact-change.sh\"",
+          "timeout": 10
+        },
+        {
+          "type": "command",
+          "command": "SDD_SPECKIT_HOST=factory sh \"${DROID_PLUGIN_ROOT}/scripts/harness/hook.sh\" post",
+          "timeout": 30
+        }
+      ]
+    }
+  ]
+}

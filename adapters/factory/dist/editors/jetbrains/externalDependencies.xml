@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Rendered to .idea/externalDependencies.xml when a JetBrains IDE is selected.
+
+  On project open, the IDE shows a "Required Plugins" prompt for anything listed here. The
+  installer replaces the plugins marker below with one <plugin> line per chosen assistant, using
+  the ids in editors/editor-map.json → assistants:
+
+    Claude Code      com.anthropic.code.plugin   (marketplace plugin 27310, vendor Anthropic PBC)
+    GitHub Copilot   com.github.copilot          (marketplace plugin 17718, vendor GitHub)
+
+  Each id is the marketplace xmlId, not the listing's display name. The Claude Code plugin wraps
+  the separately installed Claude Code CLI. It does not bundle it.
+-->
+<component name="ExternalDependencies">
+  <!-- sdd-speckit:plugins -->
+</component>
