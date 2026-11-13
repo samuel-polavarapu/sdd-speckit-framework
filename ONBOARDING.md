@@ -7,6 +7,14 @@ This walk-through follows a **new project**. For an existing codebase, read
 [docs/ONBOARDING-GREENFIELD-BROWNFIELD.md](docs/ONBOARDING-GREENFIELD-BROWNFIELD.md) first: its
 route runs discovery before the constitution.
 
+```mermaid
+flowchart LR
+    D1["Day 1<br/>Install · 8 questions<br/>MCP logins · editor"] --> D2["Day 2<br/>Constitution"]
+    D2 --> D3["Day 3<br/>One small feature,<br/>end to end"]
+    D3 --> D4["Day 4<br/>Habits"]
+    D4 --> D5["Day 5<br/>Optional extras"]
+```
+
 ## Day 1 — install
 
 ### 1. Check your tools
@@ -138,6 +146,13 @@ Pick something genuinely small. A settings toggle. The point is the workflow, no
 The spec comes first for a reason the harness now enforces: in a greenfield project, a write to a
 source file is **blocked** until the active feature has a `spec.md`, a `plan.md`, a `tasks.md`
 with tasks, and a test change. The message says which one is missing.
+
+```mermaid
+flowchart LR
+    S[specify] --> C[clarify] --> P[plan] --> K[checklist] --> T[tasks] --> A[analyze] --> I[implement] --> V[converge]
+    I -. "source write before spec, plan, tasks, test?" .-> X{{"blocked by the harness"}}
+    X -. "run the phase the message names" .-> S
+```
 
 Read the `[NEEDS CLARIFICATION]` markers. **This is the phase that pays for itself** — every
 marker is a wrong guess you did not make.

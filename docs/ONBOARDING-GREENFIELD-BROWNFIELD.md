@@ -20,9 +20,17 @@ the same phase is `/sdd-speckit-<phase>`, for example `/sdd-speckit-onboard`.
 | First artifacts | Constitution, then the first feature spec | Discovery report, constitution, baseline specs, adoption roadmap |
 | Existing files | None | Merged or kept. Never replaced. |
 
-```
-Greenfield:  install → onboard → constitution → specify → clarify → plan → checklist → tasks → implement → converge
-Brownfield:  install → onboard → discover → constitution → baseline → (the same feature phases for new work)
+```mermaid
+flowchart TD
+    I[Install] --> O["/speckit.onboard"]
+    O --> M{Project mode?}
+    M -->|greenfield| GC["constitution<br/>written from intent"]
+    M -->|brownfield| D["discover<br/>report + inventory"]
+    D --> BC["constitution<br/>derived from the code"]
+    BC --> B["baseline<br/>specs + adoption roadmap"]
+    GC --> F["Feature phases<br/>specify → clarify → plan → checklist<br/>→ tasks → analyze → implement → converge"]
+    B --> F
+    B -. "ratchet gates warn → block" .-> R[(adoption-roadmap.md)]
 ```
 
 ## Step 1 — Install
@@ -202,6 +210,15 @@ blocked.
 
 The roadmap has one row per gate: its mode now, the next mode, an exit criterion a person can
 check, an owner and a target date. One gate moves at a time.
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> warn: brownfield install
+    warn --> block: exit criterion met and approved
+    note right of warn: Writes go through, findings are logged
+    note right of block: Writes are refused, CI fails the PR
+```
 
 | Gate | Start | Example exit criterion to move to `block` |
 |---|---|---|
