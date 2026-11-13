@@ -45,6 +45,7 @@ Run a phase by name. Claude Code: `/sdd-speckit:speckit.<phase>`. GitHub Copilot
 - Never put a secret, a credential or real personal data in a file, a test, a log or a prompt.
 <!-- slot:rules-items -->
 
+<!-- slot:technology -->
 ### Build, test and lint
 
 <!-- slot:commands:begin -->

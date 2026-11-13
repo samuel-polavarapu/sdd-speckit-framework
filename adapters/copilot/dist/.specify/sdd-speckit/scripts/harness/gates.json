@@ -2,6 +2,7 @@
   "$comment": "The one definition of the harness gates. Read by scripts/harness/gate.py, scripts/onboard-project.py and installer/create-sdd-speckit-app/src/config-schema.js. Reference: docs/HARNESS.md.",
   "schema": 1,
   "modes": ["off", "warn", "block"],
+  "gitleaksModes": ["auto", "off", "required"],
   "gates": [
     {
       "id": "constitution-guard",

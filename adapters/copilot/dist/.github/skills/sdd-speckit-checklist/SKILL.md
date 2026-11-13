@@ -25,18 +25,19 @@ with the project's industry and stack profiles, so it wins. A line of the form
 
 1. `specs/<NNN>-<slug>/spec.md` and `plan.md`. Default to the feature in `.specify/.active-spec`, then to the highest `NNN`.
 2. `.specify/memory/constitution.md` — Article III sets the quality bar this checklist enforces.
-3. `checklists/<kind>-template.md` for the kind asked for. Kinds with a template:
-   `requirements`, `security`, `privacy`, `accessibility`, `release`, plus each kind the
-   project's industry profile adds (list `.specify/templates/overrides/checklists/`). For any
-   other kind, use `checklist-template.md`.
+3. `checklists/<kind>-template.md` for the kind asked for. The kinds this project uses are in
+   `checklistKinds` in `.specify/sdd-speckit.json`: the base kinds `requirements`, `security`,
+   `privacy`, `accessibility` and `release`, plus each kind the industry profile adds. For a
+   kind that is not listed, use `checklist-template.md`.
 4. `specs/<NNN>-<slug>/checklists/` — do not duplicate a checklist that already exists.
 
 ## Do
 
 Delegate to the **qa-analyst** custom agent.
 
-1. Take the kind from the arguments given after the command. With no argument, ask which kind, and offer the kinds with a
-   template first, then the kinds the constitution's quality bar implies.
+1. Take the kind from the arguments given after the command. With no argument, ask which kind. Offer the kinds in
+   `checklistKinds` that the feature has no checklist for yet, then the kinds the constitution's
+   quality bar implies.
 2. Start from the kind's template. Keep every item it carries, including the profile rows
    `C-<XX>-nn` and `C-ST-nn`: an item that does not apply to this feature stays, and the human
    marks it not applicable with the reason. Then add items derived from the artifacts in front
@@ -55,6 +56,7 @@ Delegate to the **qa-analyst** custom agent.
 ## Report
 
 - The path, the kind, and the item count.
+- The kinds in `checklistKinds` that this feature still has no checklist for.
 - Which phase it gates.
 - Any requirement or gate you could not turn into a checkable item, and why.
 

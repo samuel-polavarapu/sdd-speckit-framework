@@ -22,7 +22,9 @@ import datetime
 import json
 import os
 import re
+import shutil
 import subprocess
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FRAMEWORK = os.path.dirname(os.path.dirname(HERE))
@@ -100,6 +102,7 @@ def load_config(root):
         "exemptGlobs": harness.get("exemptGlobs") or globs.get("exempt", []),
         "commands": harness.get("commands") or {},
         "secretsAllow": harness.get("secretsAllow") or [],
+        "gitleaks": harness.get("gitleaks") if harness.get("gitleaks") in DEFS.get("gitleaksModes", []) else "auto",
         "patterns": list(DEFS.get("secretPatterns", [])) + list(sensitive),
         "industry": industry or "none",
     }
@@ -267,6 +270,56 @@ def secret_path(rel, cfg):
     if matches(rel, [a for a in cfg["secretsAllow"]]):
         return False
     return matches(rel, DEFS.get("secretPaths", [])) or matches(name, [g for g in DEFS.get("secretPaths", []) if "/" not in g])
+
+
+def gitleaks_findings(root, cfg, base, head):
+    """-> ([message], note). Runs gitleaks over the commits of the pull request when it is
+    installed. It adds to the pattern scan; it never replaces it. harness.gitleaks: auto (use it
+    when present), off, or required (a missing gitleaks is a finding). Values are redacted."""
+    mode = cfg.get("gitleaks", "auto")
+    if mode == "off":
+        return [], "gitleaks: off"
+    exe = shutil.which("gitleaks")
+    if not exe:
+        if mode == "required":
+            return ["gitleaks is required (harness.gitleaks) but is not on PATH."], "gitleaks: missing"
+        return [], "gitleaks: not installed; pattern scan only"
+    handle, report = tempfile.mkstemp(prefix="sdd-gitleaks-", suffix=".json")
+    os.close(handle)
+    common = ["--log-opts=%s..%s" % (base, head), "--report-format", "json", "--report-path", report,
+              "--redact", "--no-banner", "--exit-code", "0"]
+    ran, error = False, ""
+    try:
+        # `gitleaks git` is the current form; `gitleaks detect` is what releases before 8.19 take.
+        for command in ([exe, "git"] + common + ["."], [exe, "detect", "--source", "."] + common):
+            try:
+                r = subprocess.run(command, cwd=root, capture_output=True, text=True, timeout=900)
+            except (OSError, subprocess.SubprocessError) as err:
+                error = str(err)
+                continue
+            if r.returncode == 0:
+                ran = True
+                break
+            error = (r.stderr or r.stdout).strip().split("\n")[-1] if (r.stderr or r.stdout).strip() else "exit %d" % r.returncode
+        leaks = read_json(report, []) if ran else []
+    finally:
+        try:
+            os.remove(report)
+        except OSError:
+            pass
+    if not ran:
+        message = "gitleaks could not run: %s" % error
+        return ([message] if mode == "required" else []), message
+    allow = set(cfg["secretsAllow"])
+    path_allow = [a for a in allow if "/" in a or "*" in a or "." in a]
+    by_file = {}
+    for leak in leaks if isinstance(leaks, list) else []:
+        rel, rule = str(leak.get("File") or "?"), str(leak.get("RuleID") or "unknown-rule")
+        if rule in allow or matches(rel, path_allow) or matches(rel, DEFS.get("secretPathsAllowed", [])):
+            continue
+        by_file.setdefault(rel, set()).add(rule)
+    out = ["%s: gitleaks rule %s." % (rel, ", ".join(sorted(rules))) for rel, rules in sorted(by_file.items())]
+    return out, "gitleaks: %d finding(s)" % len(out)
 
 
 # ------------------------------------------------------------- hook gates
@@ -448,7 +501,7 @@ def ci_findings(root, cfg, base, head):
     source = [p for p in changed if kinds[p] == "source"]
     tests = [p for p in changed if kinds[p] == "test"]
     on = lambda gid: cfg["gates"].get(gid, "off") != "off"
-    out = []
+    out, scanner = [], None
 
     if on("constitution-guard") and CONSTITUTION in changed:
         diff = git(root, "diff", "-U0", span, "--", CONSTITUTION, timeout=60) or ""
@@ -519,6 +572,8 @@ def ci_findings(root, cfg, base, head):
             hits = secret_hits("\n".join(body), cfg, rel)
             if hits:
                 out.append(("secrets-scan", "%s: added lines match %s." % (rel, ", ".join(hits))))
+        leaks, scanner = gitleaks_findings(root, cfg, base, head)
+        out.extend(("secrets-scan", m) for m in leaks)
 
     if on("lint-format"):
         for key in ("lint", "format"):
@@ -533,7 +588,8 @@ def ci_findings(root, cfg, base, head):
             if r.returncode != 0:
                 tail = "\n".join((r.stdout + r.stderr).strip().split("\n")[-15:])
                 out.append(("lint-format", "`%s` exited %d:\n%s" % (command, r.returncode, tail)))
-    return out, {"changed": len(changed), "source": len(source), "tests": len(tests), "spec": spec, "specFoundBy": how}
+    return out, {"changed": len(changed), "source": len(source), "tests": len(tests), "spec": spec,
+                 "specFoundBy": how, "scanner": scanner}
 
 
 def run_ci(base, head):
@@ -573,6 +629,9 @@ def run_ci(base, head):
         for m in messages:
             print("      " + m.replace("\n", "\n      "))
 
+    if facts.get("scanner"):
+        print("  secrets-scan also ran: %s" % facts["scanner"])
+
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         try:
@@ -595,7 +654,8 @@ def run_status(as_json):
     if as_json:
         print(json.dumps({"root": root, "gates": cfg["gates"], "configured": cfg["configured"], "activeSpec": spec,
                           "activeSpecFoundBy": how, "sourceGlobs": cfg["sourceGlobs"], "testGlobs": cfg["testGlobs"],
-                          "exemptGlobs": cfg["exemptGlobs"], "commands": cfg["commands"], "industry": cfg["industry"]}, indent=2))
+                          "exemptGlobs": cfg["exemptGlobs"], "commands": cfg["commands"], "industry": cfg["industry"], "gitleaks": cfg["gitleaks"],
+                          "gitleaksInstalled": bool(shutil.which("gitleaks"))}, indent=2))
         return 0
     print("Project: %s" % root)
     if not cfg["configured"]:
@@ -606,6 +666,7 @@ def run_status(as_json):
     print("Active feature: %s" % ("specs/%s/ (from %s)" % (spec, how) if spec else "none"))
     print("Source globs: %s" % ", ".join(cfg["sourceGlobs"]))
     print("Test globs:   %s" % ", ".join(cfg["testGlobs"]))
+    print("gitleaks (CI secrets scan): %s, %s" % (cfg["gitleaks"], "installed" if shutil.which("gitleaks") else "not installed"))
     return 0
 
 

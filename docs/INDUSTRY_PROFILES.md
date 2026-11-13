@@ -192,6 +192,10 @@ is refreshed by the next onboarding run.
    `id` equals the directory name. Each standard needs `id`, `title` and `reviewedOn`. The
    installer shows the first four titles as the hint for the profile, so keep them short. A
    sensitive pattern is a Python `re` expression that blocks a write: prefer none to a noisy one.
+   `checklistKinds` is the list of checklists a feature in this industry should have. Onboarding
+   copies it to `checklistKinds` in `.specify/sdd-speckit.json`, and the checklist phase offers
+   the kinds a feature still lacks. The lint rejects a kind with no template, and a profile
+   that ships a checklist template without listing it.
 
 2. Add fragments under `fragments/`, one per template, with the same relative path as the base.
    Follow the conventions in the table above: ids `G-XX-n`, `NFR-XX-nn`, `R-XX-n`, `R###`,

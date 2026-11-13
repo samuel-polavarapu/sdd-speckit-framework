@@ -24,7 +24,7 @@ npx github:your-org/sdd-speckit-framework my-app
 | 3 | Which industry or domain? | `none` |
 | 4 | Which tech stack? | the detected stack, otherwise `custom` |
 | 5 | Primary AI assistant? (plus optional secondaries, or **Both**) | `claude` |
-| 6 | Which MCP connectors? (plus a custom-connector loop) | none |
+| 6 | Which MCP connectors? (plus a custom-connector loop) | none with `--yes`; interactively, the stack profile's `recommendedMcp` are pre-selected |
 | 7 | Preferred code editor? | `vscode` |
 | 8 | How strict are the harness gates? | the defaults for the mode |
 

@@ -151,7 +151,7 @@ secret patterns and the baseline permissions.
 | `spec-before-code` | Pre. A source write needs an active feature whose directory has `spec.md` and `plan.md`. | Source changed: a feature must resolve, and it must have `spec.md` and `plan.md`. |
 | `tasks-before-implement` | Pre. A source write needs `tasks.md` in the active feature with at least one `\| T### \|` row. | The same, against the resolved feature. |
 | `test-first` | Pre. A source write needs a test file among the uncommitted changes, or in the commits since the merge base with the default branch. Not in a git repository: the gate passes. | Source changed: a test file must change too, and the first commit that touches a test must not come after the first commit that touches source. |
-| `secrets-scan` | Pre. The target path is not a credential file by name, and the text being written matches no secret pattern. | No changed file is a credential file by name, and no added line matches a pattern. |
+| `secrets-scan` | Pre. The target path is not a credential file by name, and the text being written matches no secret pattern. | No changed file is a credential file by name, and no added line matches a pattern. When `gitleaks` is on `PATH`, it also scans the pull request's commits. |
 | `lint-format` | Post. Runs `commands.lintFile` on each written source or test file, with a 20 second limit. A missing or slow linter never blocks. | Runs `commands.lint` and `commands.format`. A non-zero exit is a finding. |
 
 Notes:
@@ -245,9 +245,19 @@ In `.specify/sdd-speckit.json`:
 | `exemptGlobs` | Paths no process gate applies to | `gates.json` |
 | `commands` | `test`, `lint`, `format`, `lintFile`. `{file}` is replaced by the quoted path. | The stack profile and the scan |
 | `secretsAllow` | Pattern ids to skip, and path globs to skip | Empty. The team adds to it. |
+| `gitleaks` | Whether the CI secrets scan also runs `gitleaks`: `auto`, `off` or `required` | `auto` |
 
 A value the team has set is kept on every later run. In `secretsAllow`, an entry that contains
 `/`, `*` or `.` is a path glob; any other entry is a pattern id, for example `us-ssn`.
+
+**gitleaks in CI.** The pattern scan always runs. With `gitleaks: auto`, `gate.py ci` also runs
+`gitleaks` over the commits between the base and the head when the binary is on `PATH`, and
+skips it quietly when it is not. `required` turns a missing or failing `gitleaks` into a finding.
+`off` never runs it. Findings are reported by file and rule id; values are redacted. A rule id
+or a path glob in `secretsAllow` drops a `gitleaks` finding too. The generated workflow does not
+install `gitleaks`: add your organisation's approved install step to `sdd-gates.yml`. The hooks
+do not run it; a per-write scan stays on the patterns. `gate.py status` shows the setting and
+whether the binary is installed.
 
 For one deliberate test value, put the pragma `sdd-allow-secret` on the same line:
 

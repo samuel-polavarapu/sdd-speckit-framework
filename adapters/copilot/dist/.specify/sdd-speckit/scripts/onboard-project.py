@@ -173,7 +173,9 @@ def resolve(project, args, defs):
             "exemptGlobs": harness.get("exemptGlobs") or defs["globs"]["exempt"],
             "commands": commands,
             "secretsAllow": harness.get("secretsAllow") or [],
+            "gitleaks": harness.get("gitleaks") if harness.get("gitleaks") in defs.get("gitleaksModes", []) else "auto",
         },
+        "checklistKinds": checklist_kinds(industry),
     })
     record.setdefault("generatedBy", "onboard-project.py")
     assistant = dict(record.get("assistant") or {})
@@ -238,6 +240,16 @@ def compose(project, facts, dry_run, force):
     if not actions:
         log.append("templates: no profile overlays any template; the base templates are used as they are")
     return log
+
+
+def checklist_kinds(industry):
+    """The checklist kinds this project offers: the industry profile's list, or every base kind."""
+    profile = read_json(os.path.join(ROOT, "profiles", "industries", industry, "profile.json"), {}) or {}
+    if profile.get("checklistKinds"):
+        return list(profile["checklistKinds"])
+    base = os.path.join(ROOT, "templates", "checklists")
+    return sorted(f[:-len("-template.md")] for f in (os.listdir(base) if os.path.isdir(base) else [])
+                  if f.endswith("-template.md"))
 
 
 IGNORE_HEADER = "# sdd-speckit: local harness state, never committed"

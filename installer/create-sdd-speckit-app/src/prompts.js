@@ -11,7 +11,7 @@
 import { createInterface } from "node:readline";
 import { stdin, stdout } from "node:process";
 import { findProfile, industryChoices, stackChoices } from "./profiles-map.js";
-import { catalogChoices, connectorsNeedingInput, findConnector } from "./mcp-map.js";
+import { catalogChoices, connectorsNeedingInput, findConnector, suggestedConnectors } from "./mcp-map.js";
 import {
   ASSISTANTS, BOTH, EXPORTERS, GATES, GATE_MODES, gateDefaults, normalizeAssistant, validateCustomMcp,
 } from "./config-schema.js";
@@ -108,11 +108,17 @@ function makePlainUi() {
       }
     },
 
-    async multiselect({ message, options, required = false }) {
+    async multiselect({ message, options, required = false, initialValues = [] }) {
       console.log(`\n${message}`);
       options.forEach((o, i) => console.log(`  ${i + 1}) ${o.label}${o.hint ? ` — ${o.hint}` : ""}`));
+      const preset = options.filter((o) => initialValues.includes(o.value));
+      const hint = preset.length
+        ? `blank keeps ${preset.map((o) => o.value).join(", ")}; "none" for none`
+        : "blank for none";
       for (;;) {
-        const a = await ask("Numbers, comma separated (blank for none): ");
+        const a = await ask(`Numbers, comma separated (${hint}): `);
+        if (a === "" && preset.length) return preset.map((o) => o.value);
+        if (a.toLowerCase() === "none" && !required) return [];
         if (a === "") {
           if (required) {
             console.log("  ! Choose at least one.");
@@ -275,11 +281,18 @@ export async function askAssistant(ui, current) {
 }
 
 export async function askMcp(ui, frameworkRoot, current, stack) {
-  const suggested = findProfile(frameworkRoot, "stack", stack)?.recommendedMcp ?? [];
-  if (suggested.length) ui.note(suggested.join(", "), `Connectors the ${stack} stack profile suggests`);
+  const suggested = suggestedConnectors(frameworkRoot, stack);
+  // Earlier picks win. On a first run the stack profile's suggestions are pre-selected, never applied
+  // silently: the user sees them ticked and can untick them.
+  const initialValues = current?.catalog?.length ? current.catalog : suggested;
+  if (suggested.length) {
+    ui.note(`${suggested.join(", ")}\nPre-selected below. Untick any you do not want.`,
+      `Connectors the ${stack} stack profile suggests`);
+  }
   const catalog = await ui.multiselect({
     message: "Which MCP connectors? (optional — you can add more later with /speckit.setup)",
     options: catalogChoices(frameworkRoot),
+    initialValues,
   });
 
   // A tenant-hosted connector has no default endpoint. Collect it, or drop the pick.

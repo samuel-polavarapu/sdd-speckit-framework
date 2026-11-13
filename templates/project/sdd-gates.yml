@@ -21,6 +21,9 @@ jobs:
         with:
           python-version: "3.12"
 # slot:stack-setup
+      # The secrets-scan gate also runs gitleaks over the pull request's commits when gitleaks is
+      # on PATH. Add your organisation's approved install step for it here. To fail the job when it
+      # is missing, set harness.gitleaks to "required" in .specify/sdd-speckit.json.
       - name: Composed templates are current
         run: python3 .specify/sdd-speckit/scripts/compose-templates.py --project . --check
       - name: SDD gates

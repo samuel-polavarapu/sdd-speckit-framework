@@ -22,6 +22,19 @@ export function findConnector(frameworkRoot, id) {
   return loadCatalog(frameworkRoot).connectors.find((c) => c.id === id) ?? null;
 }
 
+/**
+ * The connectors a stack profile recommends, limited to the ones that can be pre-selected: in the
+ * catalog, and with nothing to collect first (no tenant URL, no credential up front).
+ */
+export function suggestedConnectors(frameworkRoot, stack) {
+  const p = join(frameworkRoot, "profiles", "stacks", String(stack ?? ""), "profile.json");
+  if (!stack || !existsSync(p)) return [];
+  const wanted = JSON.parse(readFileSync(p, "utf8")).recommendedMcp ?? [];
+  return loadCatalog(frameworkRoot).connectors
+    .filter((c) => wanted.includes(c.id) && !c.requiresUserInput && !c.auth?.needsUpfrontCredential)
+    .map((c) => c.id);
+}
+
 /** Connectors the installer must prompt for before it can write anything. */
 export function connectorsNeedingInput(frameworkRoot, ids) {
   return loadCatalog(frameworkRoot).connectors.filter((c) => ids.includes(c.id) && c.requiresUserInput);

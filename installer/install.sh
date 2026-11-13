@@ -289,9 +289,32 @@ for i, c in enumerate(json.load(open('$FRAMEWORK_ROOT/mcp/catalog.json'))['conne
     extra = '; asks for your own URL' if c.get('requiresUserInput') else ''
     print('  %d) %s - %s (%s%s)' % (i, c['displayName'], c['description'], kind, extra))
 "
-  read -r -p "Numbers, comma separated (blank for none): " picks || picks=""
+  # The stack profile's suggestions are the default on a first run; earlier picks win.
+  SUGGESTED="$(STACK="$STACK" FRAMEWORK_ROOT="$FRAMEWORK_ROOT" python3 - <<'EOPY'
+import json, os
+root, stack = os.environ["FRAMEWORK_ROOT"], os.environ.get("STACK", "")
+try:
+    wanted = json.load(open(os.path.join(root, "profiles", "stacks", stack, "profile.json"))).get("recommendedMcp", [])
+except (OSError, ValueError):
+    wanted = []
+print(",".join(c["id"] for c in json.load(open(os.path.join(root, "mcp", "catalog.json")))["connectors"]
+               if c["id"] in wanted and not c.get("requiresUserInput")
+               and not (c.get("auth") or {}).get("needsUpfrontCredential")))
+EOPY
+)"
+  MCP_DEFAULT="${MCP:-$SUGGESTED}"
+  if [ -n "$MCP_DEFAULT" ]; then
+    [ -z "$MCP" ] && echo "  The $STACK stack profile suggests: $SUGGESTED"
+    read -r -p "Numbers, comma separated (blank keeps $MCP_DEFAULT; \"none\" for none): " picks || picks=""
+  else
+    read -r -p "Numbers, comma separated (blank for none): " picks || picks=""
+  fi
   MCP=""
-  if [ -n "$picks" ]; then
+  if [ -z "$picks" ]; then
+    MCP="$MCP_DEFAULT"
+  elif [ "$picks" = "none" ]; then
+    MCP=""
+  else
     IFS=',' read -r -a nums <<< "$picks"
     for n in "${nums[@]}"; do
       n="$(printf '%s' "$n" | tr -d '[:space:]')"

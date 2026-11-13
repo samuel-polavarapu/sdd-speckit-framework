@@ -39,7 +39,15 @@ codebases, and a harness of deterministic gates.
   profiles, composer and gate runner, so hooks and CI need no plugin.
 - **Permission rules** in the generated `.claude/settings.json`: a baseline, plus the stack
   profile's build and test commands.
-- **Tests.** A `node:test` suite (`npm test`, 39 tests): frontmatter, config migration, scaffold,
+- **gitleaks in the CI secrets scan.** `gate.py ci` also runs `gitleaks` over the pull request's
+  commits when it is installed. `harness.gitleaks` is `auto`, `off` or `required`.
+- **Stack `defaults` are composed.** A stack profile's `defaults` become
+  `Annex T — Technology standards` in the constitution template and a `### Technology` table in
+  `AGENTS.md`.
+- **Stack `recommendedMcp` is pre-selected** in the MCP question of both installers.
+- **`checklistKinds`** from the industry profile is recorded in `.specify/sdd-speckit.json`, and
+  the checklist phase offers the kinds a feature still lacks.
+- **Tests.** A `node:test` suite (`npm test`, 44 tests): frontmatter, config migration, scaffold,
   composer, gate runner, and parity between the two installers.
 
 ### Changed
@@ -82,6 +90,8 @@ codebases, and a harness of deterministic gates.
 
 - The gates and the three onboarding commands were tested with fixture payloads and temporary
   repositories. They were not run inside a live Claude Code or GitHub Copilot session.
+- The `gitleaks` step was tested with a stand-in binary that writes a report in the gitleaks
+  JSON format. It was not run against a real `gitleaks` release.
 - The control citations in the industry profiles were written from model knowledge and were not
   checked against the standards. Each profile is engineering guidance, not compliance advice.
   Have the organisation's compliance owner review a profile before you rely on it.

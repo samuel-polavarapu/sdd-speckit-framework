@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { COMPOSE, HERE, ROOT, have, py, tmp } from "./helpers.js";
+import { COMPOSE, HERE, ONBOARD, ROOT, have, py, tmp } from "./helpers.js";
+import { suggestedConnectors } from "../src/mcp-map.js";
 
 const skip = !have("python3") && "python3 is not installed";
 const OVERRIDES = join(".specify", "templates", "overrides");
@@ -74,9 +75,11 @@ test("composing twice changes nothing, and a dropped profile removes its overrid
   const again = JSON.parse(compose(dir, ...args, "--json").stdout);
   assert.deepEqual(again.actions.filter((a) => a.action === "write" || a.action === "remove"), []);
   assert.equal(compose(dir, "--industry", "none", "--stack", "dotnet-aspire").status, 0);
-  assert.ok(!existsSync(join(dir, OVERRIDES, "constitution-template.md")));
+  assert.doesNotMatch(readFileSync(join(dir, OVERRIDES, "constitution-template.md"), "utf8"), /Annex R|G-PS-/);
   assert.ok(!existsSync(join(dir, OVERRIDES, "checklists", "ato-readiness-template.md")));
   assert.ok(existsSync(join(dir, OVERRIDES, "plan-template.md")));
+  assert.equal(compose(dir, "--industry", "none", "--stack", "custom").status, 0);
+  assert.ok(!existsSync(join(dir, OVERRIDES, "constitution-template.md")), "no profile, no override");
 });
 
 test("an existing AGENTS.md keeps its text, and a hand-edited override is kept", { skip }, () => {
@@ -107,4 +110,38 @@ test("a project-local fragment is the last layer, and an unknown slot is an erro
   const bad = compose(dir, "--industry", "healthcare");
   assert.equal(bad.status, 2);
   assert.match(bad.stderr, /no-such-slot/);
+});
+
+test("a stack profile's defaults reach the constitution annex and AGENTS.md", { skip }, () => {
+  const dir = tmp();
+  assert.equal(compose(dir, "--industry", "healthcare", "--stack", "python-fastapi").status, 0);
+  const constitution = readFileSync(join(dir, OVERRIDES, "constitution-template.md"), "utf8");
+  assert.match(constitution, /^## Annex T — Technology standards \(Python service \(FastAPI\)\)/m);
+  assert.match(constitution, /^\| Unit tests \| pytest \|$/m);
+  assert.ok(constitution.indexOf("## Annex R") < constitution.indexOf("## Annex T"), "regulatory annex first");
+  const agents = readFileSync(join(dir, "AGENTS.md"), "utf8");
+  assert.match(agents, /^### Technology\n[\s\S]*^\| Language \| Python 3\.12 \|$/m);
+  assert.ok(agents.indexOf("### Technology") < agents.indexOf("### Build, test and lint"));
+
+  const bare = tmp();
+  assert.equal(compose(bare, "--stack", "custom").status, 0);
+  assert.doesNotMatch(readFileSync(join(bare, "AGENTS.md"), "utf8"), /### Technology/);
+});
+
+test("onboarding records the industry's checklist kinds, or the base kinds", { skip }, () => {
+  const kinds = (industry) => {
+    const dir = tmp();
+    const r = py(ONBOARD, ["--project", dir, "--industry", industry, "--stack", "custom"]);
+    assert.equal(r.status, 0, r.stderr);
+    return JSON.parse(readFileSync(join(dir, ".specify", "sdd-speckit.json"), "utf8")).checklistKinds;
+  };
+  assert.deepEqual(kinds("none"), ["accessibility", "privacy", "release", "requirements", "security"]);
+  const fs = kinds("financial-services");
+  assert.ok(fs.includes("pci-scope") && fs.includes("sox-change") && fs.includes("security"));
+});
+
+test("a stack's recommended connectors are suggested only when they need nothing first", () => {
+  assert.deepEqual(suggestedConnectors(ROOT, "web-fullstack-node"), ["github", "figma", "playwright"]);
+  assert.deepEqual(suggestedConnectors(ROOT, "custom"), []);
+  assert.deepEqual(suggestedConnectors(ROOT, undefined), []);
 });

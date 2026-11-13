@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { delimiter, dirname, join } from "node:path";
 import { GATE, ONBOARD, git, have, py, tmp } from "./helpers.js";
 
 const skip = !(have("python3") && have("git")) && "python3 and git are needed";
@@ -144,4 +144,68 @@ test("ci: a feature branch with spec, plan, tasks and a test first passes", { sk
   const r = py(GATE, ["ci", "--base", base], { cwd: dir, env: { ...process.env, GITHUB_HEAD_REF: "", GITHUB_STEP_SUMMARY: "" } });
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.ok(!existsSync(join(dir, ".specify", ".constitution-unlock")));
+});
+
+/** A stand-in gitleaks that takes only the old `detect` form and reports one finding. */
+function fakeGitleaks() {
+  const bin = tmp("sdd-bin-");
+  const exe = join(bin, "gitleaks");
+  writeFileSync(exe, [
+    "#!/usr/bin/env bash",
+    '[ "$1" = "detect" ] || { echo "unknown command \\"$1\\"" >&2; exit 1; }',
+    'while [ $# -gt 0 ]; do [ "$1" = "--report-path" ] && report="$2"; shift; done',
+    `printf '%s' '[{"RuleID":"generic-api-key","File":"src/orders.py","StartLine":1,"Secret":"REDACTED"}]' > "$report"`,
+    "",
+  ].join("\n"));
+  chmodSync(exe, 0o755);
+  return bin;
+}
+
+function cleanFeatureBranch() {
+  const dir = project("--mode", "greenfield", "--gate", "lint-format=off");
+  const base = git(dir, "rev-parse", "HEAD");
+  git(dir, "checkout", "-q", "-b", "001-orders");
+  feature(dir);
+  put(dir, "tests/test_orders.py", "def test_orders():\n    assert True\n");
+  put(dir, "src/orders.py", "x = 1\n");
+  git(dir, "add", "-A", "--", "specs", "tests", "src");
+  git(dir, "commit", "-q", "-m", "feature");
+  return { dir, base };
+}
+
+const record = (dir) => join(dir, ".specify", "sdd-speckit.json");
+function setHarness(dir, patch) {
+  const r = JSON.parse(readFileSync(record(dir), "utf8"));
+  Object.assign(r.harness, patch);
+  writeFileSync(record(dir), JSON.stringify(r, null, 2));
+}
+
+test("ci: gitleaks findings join the secrets scan, and secretsAllow drops them", { skip: skip || process.platform === "win32" }, () => {
+  const { dir, base } = cleanFeatureBranch();
+  const env = { ...process.env, GITHUB_HEAD_REF: "", GITHUB_STEP_SUMMARY: "", PATH: fakeGitleaks() + delimiter + process.env.PATH };
+  const run = () => py(GATE, ["ci", "--base", base], { cwd: dir, env });
+
+  let r = run();
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /src\/orders\.py: gitleaks rule generic-api-key/);
+  assert.match(r.stdout, /secrets-scan\s+block\s+FAIL/);
+
+  setHarness(dir, { secretsAllow: ["generic-api-key"] });
+  r = run();
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+
+  setHarness(dir, { secretsAllow: [], gitleaks: "off" });
+  r = run();
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /gitleaks: off/);
+});
+
+test("ci: gitleaks set to required fails when the binary is missing", { skip: skip || (have("gitleaks", ["version"]) && "gitleaks is installed") }, () => {
+  const { dir, base } = cleanFeatureBranch();
+  const env = { ...process.env, GITHUB_HEAD_REF: "", GITHUB_STEP_SUMMARY: "" };
+  assert.equal(py(GATE, ["ci", "--base", base], { cwd: dir, env }).status, 0, "auto skips a missing gitleaks");
+  setHarness(dir, { gitleaks: "required" });
+  const r = py(GATE, ["ci", "--base", base], { cwd: dir, env });
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /gitleaks is required/);
 });

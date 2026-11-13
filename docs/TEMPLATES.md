@@ -91,7 +91,7 @@ industry code: `GS`, `HC`, `FS`, `PS`.
 |---|---|---|---|
 | Constitution gate | `N1`…`N5` | `G-XX-1`… | — |
 | Constitution principle | `Principle 1`… | `Principle XX-1`… | — |
-| Constitution annex | Articles I–VI | `Annex R — Regulatory controls` | `Annex T — Technology standards` (reserved; no shipped stack fills it) |
+| Constitution annex | Articles I–VI | `Annex R — Regulatory controls` | `Annex T — Technology standards`, generated from the profile's `defaults` |
 | Non-functional requirement | `NFR-001`… | `NFR-XX-01`… | — |
 | Plan risk | `R1`… | `R-XX-1`… | — |
 | Task | `T001`… | `R001`… | `S001`… |
@@ -137,7 +137,7 @@ appends.
 
 | Template | Slots |
 |---|---|
-| `project/AGENTS.md` | `rules-items`, `commands` (block), `conventions`, `sections-end` |
+| `project/AGENTS.md` | `rules-items`, `technology`, `commands` (block), `conventions`, `sections-end` |
 | `project/CLAUDE.md` | `rules-items`, `sections-end` |
 | `project/sdd-gates.yml` | `stack-setup` |
 | `project/pull_request_template.md` | `checklist-items`, `sections-end` |
@@ -221,7 +221,7 @@ composition no longer produces is removed, for example after the industry change
 The first line of a composed file (after YAML frontmatter, if any):
 
 ```
-<!-- sdd-speckit:composed industry=healthcare stack=python-fastapi inputs=3f9c0a1b2d4e — regenerate with speckit.setup; do not edit -->
+<!-- sdd-speckit:composed industry=healthcare stack=python-fastapi inputs=3f9c0a1b2d4e — regenerate with the onboard phase; do not edit -->
 ```
 
 `inputs` is the first 12 hex digits of a SHA-256 over every base template and every fragment that
@@ -296,6 +296,13 @@ id prefix (`NFR-LOC-…` here) so that the ids stay unique.
    (`C-ST-nn` rows).
 3. Optional: `vscode-extensions.json` with a `recommendations` list.
 4. Run the lint.
+
+Two fields of a stack's `profile.json` are read without a fragment:
+
+| Field | What reads it | Effect |
+|---|---|---|
+| `defaults` | The composer | One `Area / Standard` table, written to `Annex T — Technology standards` in the constitution template and to `### Technology` in `AGENTS.md`. A key becomes the row label (`unitTest` → "Unit tests"). The layer is named `stack:<id>:defaults` and comes after the stack's own fragments. |
+| `recommendedMcp` | Both installers and the setup phase | On a first run the listed connectors are pre-selected in the MCP question. A connector that needs a URL or a credential first is never pre-selected. With `--yes`, nothing is added. The lint rejects an id that is not in `mcp/catalog.json`. |
 
 ### An industry profile
 

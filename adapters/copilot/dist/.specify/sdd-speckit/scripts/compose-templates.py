@@ -95,6 +95,69 @@ def load_profile(root, kind, pid):
     return data
 
 
+# ------------------------------------------------- generated stack layer
+
+DEFAULT_LABELS = {
+    "language": "Language", "runtime": "Runtime", "framework": "Framework", "frontend": "Frontend",
+    "backend": "Backend", "storage": "Storage", "orm": "Data access", "migrations": "Migrations",
+    "unitTest": "Unit tests", "contractTest": "Contract tests", "integrationTest": "Integration tests",
+    "e2eTest": "End-to-end tests", "lint": "Lint", "format": "Format", "typeCheck": "Type check",
+    "packageManager": "Package manager", "orchestration": "Orchestration", "observability": "Observability",
+}
+
+
+def default_label(key):
+    if key in DEFAULT_LABELS:
+        return DEFAULT_LABELS[key]
+    words = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", key).replace("_", " ").replace("-", " ")
+    return words[:1].upper() + words[1:].lower()
+
+
+def stack_default_fragments(stack):
+    """-> {template: fragment text} generated from the stack profile's `defaults`. The technology
+    table is written once, in profile.json, and reaches the constitution annex and AGENTS.md."""
+    defaults = stack.get("defaults") or {}
+    rows = ["| %s | %s |" % (default_label(k), str(v).replace("|", "\\|").replace("\n", " "))
+            for k, v in defaults.items() if v not in (None, "", [])]
+    if not rows:
+        return {}
+    table = ["| Area | Standard |", "|---|---|"] + rows
+    label = stack.get("label") or stack["id"]
+    return {
+        "constitution-template.md": "\n".join([
+            "<!-- @slot annexes -->",
+            "## Annex T — Technology standards (%s)" % label,
+            "",
+            "The stack profile sets these standards. A plan that departs from one names the standard and",
+            "records the reason in an architecture decision record.",
+            ""] + table) + "\n",
+        "project/AGENTS.md": "\n".join([
+            "<!-- @slot technology -->",
+            "### Technology",
+            "",
+            "The project's standard stack. Do not add a second tool for a row that already has one.",
+            ""] + table) + "\n",
+    }
+
+
+def base_checklist_kinds(root):
+    base = os.path.join(root, "templates", "checklists")
+    return sorted(f[:-len("-template.md")] for f in (os.listdir(base) if os.path.isdir(base) else [])
+                  if f.endswith("-template.md"))
+
+
+def profile_checklist_kinds(profile):
+    base = os.path.join(profile["_dir"], "templates", "checklists")
+    return sorted(f[:-len("-template.md")] for f in (os.listdir(base) if os.path.isdir(base) else [])
+                  if f.endswith("-template.md"))
+
+
+def checklist_kinds(root, industry):
+    """The checklist kinds a project should offer: the industry's list, or every base kind."""
+    listed = (industry or {}).get("checklistKinds")
+    return list(listed) if listed else base_checklist_kinds(root)
+
+
 # -------------------------------------------------------------- fragments
 
 def parse_fragment(text, where):
@@ -205,7 +268,7 @@ def is_markdown(rel):
 
 
 def header_line(rel, ctx):
-    body = ("sdd-speckit:composed industry=%s stack=%s inputs=%s — regenerate with speckit.setup; do not edit"
+    body = ("sdd-speckit:composed industry=%s stack=%s inputs=%s — regenerate with the onboard phase; do not edit"
             % (ctx["industry"], ctx["stack"], ctx["inputs"]))
     return "<!-- %s -->" % body if is_markdown(rel) else "# %s" % body
 
@@ -272,6 +335,10 @@ def plan(root, project, industry_id, stack_id, targets):
             if rel not in base_files and rel not in extra:
                 raise ComposeError("%s: fragments/%s matches no template" % (layer, rel))
             fragments.setdefault(rel, []).append((layer, read(os.path.join(fdir, rel))))
+        if stack and layer == "stack:%s" % stack["id"]:
+            # Generated from profile.json, after the stack's own fragments and before the project's.
+            for rel, text in sorted(stack_default_fragments(stack).items()):
+                fragments.setdefault(rel, []).append(("%s:defaults" % layer, text))
 
     digest = hashlib.sha256()
     sources = {}
@@ -285,6 +352,7 @@ def plan(root, project, industry_id, stack_id, targets):
         "industry": industry["id"] if industry else NONE_IDS["industry"],
         "stack": stack["id"] if stack else NONE_IDS["stack"],
         "inputs": digest.hexdigest()[:12],
+        "checklistKinds": checklist_kinds(root, industry),
     }
 
     artifacts = []
@@ -414,6 +482,9 @@ def lint(root=ROOT):
             if not entry.get("output"):
                 problems.append("manifest.json: %s has no output" % entry.get("template"))
 
+    catalog = read_json(os.path.join(root, "mcp", "catalog.json"), {}) or {}
+    connectors = {c.get("id") for c in catalog.get("connectors", [])}
+    have_catalog = bool(connectors)
     for kind in ("industry", "stack"):
         for pid in list_profiles(root, kind):
             where = "profiles/%s/%s" % ("industries" if kind == "industry" else "stacks", pid)
@@ -437,6 +508,21 @@ def lint(root=ROOT):
                     re.compile(pat.get("regex", ""))
                 except re.error as err:
                     problems.append("%s/profile.json: sensitivePatterns %s: %s" % (where, pat.get("id"), err))
+            prof["_dir"] = profile_dir(root, kind, pid)
+            own = profile_checklist_kinds(prof)
+            known = set(base_checklist_kinds(root)) | set(own)
+            for ck in prof.get("checklistKinds", []):
+                if ck not in known:
+                    problems.append('%s/profile.json: checklistKinds "%s" has no checklists/%s-template.md' % (where, ck, ck))
+            if "checklistKinds" in prof:
+                for ck in own:
+                    if ck not in prof["checklistKinds"]:
+                        problems.append('%s/profile.json: checklistKinds does not list its own "%s"' % (where, ck))
+            for cid in prof.get("recommendedMcp", []):
+                if have_catalog and cid not in connectors:
+                    problems.append('%s/profile.json: recommendedMcp "%s" is not in mcp/catalog.json' % (where, cid))
+            if not isinstance(prof.get("defaults", {}), dict):
+                problems.append("%s/profile.json: defaults must be an object" % where)
             fdir = os.path.join(profile_dir(root, kind, pid), "fragments")
             for rel in walk(fdir) if os.path.isdir(fdir) else []:
                 text = read(os.path.join(fdir, rel))

@@ -70,7 +70,9 @@ Record them as `assistant.targets`.
 ### 6. MCP connectors
 
 Multi-select over `mcp/catalog.json`. For each, show the description and whether it needs OAuth or
-a credential up front. Then loop: **add a custom MCP server?** — name, transport
+a credential up front. When the project has no connector yet, say which ones the stack profile
+suggests (`recommendedMcp` in `profiles/stacks/<id>/profile.json`) and offer them first. Add none
+without a yes. Then loop: **add a custom MCP server?** — name, transport
 (`http`/`sse`/`stdio`), URL or command, optional header or env var — until the user is done.
 
 **Rally has no public endpoint.** It is tenant-hosted. Prompt for the organization's own Rally MCP
