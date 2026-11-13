@@ -39,20 +39,60 @@ subagent.** Every component here follows it.
 
 ## Command to subagent routing
 
+```mermaid
+flowchart LR
+    subgraph Commands
+        discover
+        baseline
+        constitution
+        specify
+        clarify
+        plan
+        checklist
+        tasks
+        analyze
+        implement
+        converge
+    end
+    subgraph Subagents
+        CART["codebase-cartographer<br/>sonnet · read-only"]
+        SA["spec-author<br/>sonnet"]
+        ARCH["solution-architect<br/>opus"]
+        RS["research-scout<br/>haiku · read-only"]
+        QA["qa-analyst<br/>opus"]
+        TP["task-planner<br/>sonnet"]
+        IMP["implementer<br/>sonnet"]
+        CR["code-reviewer<br/>opus · read-only"]
+    end
+    discover --> CART
+    baseline --> CART & SA & ARCH
+    constitution --> ARCH
+    specify --> SA
+    clarify --> SA & RS
+    plan --> ARCH & RS
+    checklist --> QA
+    tasks --> TP
+    analyze -->|read-only| QA
+    implement --> IMP & CR
+    converge --> QA & CR
 ```
-speckit.onboard       (sonnet) → none: runs scripts/onboard-project.py
-speckit.discover      (sonnet) → codebase-cartographer (sonnet)   [changes no source]
-speckit.baseline      (opus)   → codebase-cartographer + spec-author + solution-architect
-speckit.constitution  (opus)   → solution-architect  (opus)
-speckit.specify       (sonnet) → spec-author         (sonnet)
-speckit.clarify       (sonnet) → spec-author + research-scout (sonnet + haiku)
-speckit.plan          (opus)   → solution-architect + research-scout
-speckit.checklist     (sonnet) → qa-analyst          (opus)
-speckit.tasks         (sonnet) → task-planner        (sonnet)
-speckit.analyze       (opus)   → qa-analyst          (opus)   [read-only]
-speckit.implement     (sonnet) → implementer + code-reviewer  (sonnet + opus)
-speckit.converge      (opus)   → qa-analyst + code-reviewer   (opus)
-```
+
+`speckit.onboard` delegates to no subagent. It runs `scripts/onboard-project.py`.
+
+| Command | Tier | Delegates to |
+|---|---|---|
+| `speckit.onboard` | sonnet | none: runs `scripts/onboard-project.py` |
+| `speckit.discover` | sonnet | `codebase-cartographer` (changes no source) |
+| `speckit.baseline` | opus | `codebase-cartographer`, `spec-author`, `solution-architect` |
+| `speckit.constitution` | opus | `solution-architect` |
+| `speckit.specify` | sonnet | `spec-author` |
+| `speckit.clarify` | sonnet | `spec-author`, `research-scout` |
+| `speckit.plan` | opus | `solution-architect`, `research-scout` |
+| `speckit.checklist` | sonnet | `qa-analyst` |
+| `speckit.tasks` | sonnet | `task-planner` |
+| `speckit.analyze` | opus | `qa-analyst` (read-only) |
+| `speckit.implement` | sonnet | `implementer`, `code-reviewer` |
+| `speckit.converge` | opus | `qa-analyst`, `code-reviewer` |
 
 Rationale in [MODEL_ROUTING.md](MODEL_ROUTING.md).
 
@@ -80,6 +120,18 @@ them in two places: in the assistant's hooks before and after a write, and in CI
 request diff. `scripts/harness/gates.json` is the single definition, and the installer, the
 onboarding script and the runner all read it.
 
+```mermaid
+flowchart LR
+    DEF[("gates.json<br/>definition")] --> RUN
+    CFG[(".specify/sdd-speckit.json<br/>modes per gate")] --> RUN
+    H["Assistant hooks<br/>pre / post write"] --> RUN["gate.py"]
+    PR["CI: sdd-gates.yml<br/>pull request diff"] --> RUN
+    RUN --> OUT{"mode"}
+    OUT -->|off| N[skip]
+    OUT -->|warn| W["allow + log"]
+    OUT -->|block| B["refuse / fail job"]
+```
+
 Each gate is `off`, `warn` or `block` in `.specify/sdd-speckit.json`. A greenfield project starts
 at `block`. A brownfield project starts the process gates at `warn` and moves them to `block` one
 at a time, on the conditions in its adoption roadmap.
@@ -100,6 +152,11 @@ project-local fragments and writes the result to `.specify/templates/overrides/`
 template that some layer changed. An untouched template keeps resolving from the framework, so an
 upgrade still reaches it. Every phase command reads the override first. Details:
 [TEMPLATES.md](TEMPLATES.md).
+
+```mermaid
+flowchart LR
+    B[Base template] --> IND[Industry fragments] --> STK[Stack fragments] --> LOC[Project-local fragments] --> OUT[".specify/templates/overrides/"]
+```
 
 ## Two things named "hooks" — never conflate them
 

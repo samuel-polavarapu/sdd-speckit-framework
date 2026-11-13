@@ -18,6 +18,15 @@ the same phase is `/sdd-speckit-<phase>`.
 | 3 | Stack profile | `profiles/stacks/<id>/fragments/` | Technology content |
 | 4 | Project-local | `<project>/.specify/templates/fragments/` | What only this project needs |
 
+```mermaid
+flowchart LR
+    B["1 · Base<br/>templates/"] --> I["2 · Industry<br/>profiles/industries/*"]
+    I --> S["3 · Stack<br/>profiles/stacks/*"]
+    S --> L["4 · Project-local<br/>.specify/templates/fragments/"]
+    L --> C(["compose-templates.py"])
+    C --> O[".specify/templates/overrides/<br/>(only templates a layer changed)"]
+```
+
 The composer, `scripts/compose-templates.py`, joins them in that order. It is the only thing that
 joins them, and it uses the Python standard library only, so the result is the same on every
 machine. Both installers, `/sdd-speckit:speckit.onboard`, `/sdd-speckit:speckit.setup` and CI run

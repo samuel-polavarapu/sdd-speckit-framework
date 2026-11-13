@@ -143,6 +143,27 @@ One runner, `scripts/harness/gate.py`, serves the hooks and CI. One file,
 `scripts/harness/gates.json`, defines the gates, the modes, the defaults, the default globs, the
 secret patterns and the baseline permissions.
 
+What happens when the assistant writes a source file:
+
+```mermaid
+sequenceDiagram
+    participant M as Model
+    participant H as Pre hook (gate.py hook pre)
+    participant F as File system
+    participant P as Post hook (gate.py hook post)
+    M->>H: Write / Edit tool call
+    H->>H: classify path, resolve active feature,<br/>check constitution, spec, tasks, test, secrets
+    alt a gate in block mode fails
+        H-->>M: exit 2 + message naming the missing phase
+    else pass, or warn
+        H->>F: write goes through (warn is logged)
+        F->>P: file written
+        P->>P: lint-format on the file
+        P-->>M: lint output, if it fails
+    end
+    Note over H,P: Every finding is appended to .specify/harness-log.jsonl
+```
+
 ### The six gates
 
 | Gate | Hook check (per write) | CI check (per pull request) |
@@ -196,6 +217,15 @@ block on upgrade. The project opts in by giving a mode: `--mode=…`, or `--gate
 ### How the active feature is resolved
 
 In this order. The first that names an existing `specs/<NNN>-<slug>/` directory wins.
+
+```mermaid
+flowchart LR
+    A[".specify/.active-spec"] -->|none| B["GITHUB_HEAD_REF"]
+    B -->|none| C["git branch NNN-slug"]
+    C -->|none| D["CI: the one spec dir<br/>the change touches"]
+    D -->|none| E["CI: Spec: trailer<br/>in a commit"]
+    E -->|none| X["no active feature"]
+```
 
 1. `.specify/.active-spec`. The specify, plan, tasks and implement phases write it.
 2. The `GITHUB_HEAD_REF` environment variable, when it is `NNN-slug` (CI).
