@@ -223,3 +223,46 @@ test("a batched Copilot payload is checked call by call, not waved through", { s
   const readOnly = { cwd: dir, toolCalls: [{ name: "view", args: { path: "src/orders.py" } }] };
   assert.equal(py(GATE, ["hook", "pre"], { input: JSON.stringify(readOnly), cwd: dir, env }).status, 0);
 });
+
+test("an allowlisted path in a batch does not exempt the other calls", { skip }, () => {
+  const dir = project("--mode", "brownfield");
+  setHarness(dir, { secretsAllow: ["tests/fixtures/**"] });
+  const key = "AKIA" + "ABCDEFGHIJKLMNOP";
+  const payload = { cwd: dir, toolCalls: [
+    { name: "create", args: { path: "tests/fixtures/a.txt", content: "fixture\n" } },
+    { name: "create", args: { path: "docs/notes.md", content: `key = ${key}\n` } },
+  ] };
+  const env = { ...process.env, CLAUDE_PROJECT_DIR: dir, GITHUB_HEAD_REF: "" };
+  const r = py(GATE, ["hook", "pre"], { input: JSON.stringify(payload), cwd: dir, env });
+  assert.equal(r.status, 2, r.stdout + r.stderr);
+  assert.match(r.stderr, /secrets-scan/);
+});
+
+test("the constitution guard sees a renamed path, a moved patch and another case", { skip }, () => {
+  const dir = project("--mode", "brownfield");
+  const r = hook(dir, "pre", ".specify/memory/Constitution.md", "# Constitution\n");
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /constitution-guard/);
+  const patch = "*** Begin Patch\n*** Update File: notes.md\n*** Move to: .specify/memory/constitution.md\n@@\n+x\n*** End Patch\n";
+  const payload = { tool_name: "apply_patch", tool_input: { input: patch }, cwd: dir };
+  const p = py(GATE, ["hook", "pre"], { input: JSON.stringify(payload), cwd: dir, env: { ...process.env, CLAUDE_PROJECT_DIR: dir } });
+  assert.equal(p.status, 2, p.stdout + p.stderr);
+});
+
+test("ci: deleting the constitution and a secret in a non-ASCII file name both fail", { skip }, () => {
+  const dir = project("--mode", "greenfield", "--gate", "lint-format=off");
+  put(dir, ".specify/memory/constitution.md", "# Constitution\n");
+  git(dir, "add", "-A");
+  git(dir, "commit", "-q", "-m", "constitution");
+  const base = git(dir, "rev-parse", "HEAD");
+  git(dir, "checkout", "-q", "-b", "change");
+  git(dir, "rm", "-q", ".specify/memory/constitution.md");
+  put(dir, "docs/é.txt", "++ heading\nkey = " + "AKIA" + "ABCDEFGHIJKLMNOP\n");
+  git(dir, "add", "-A");
+  git(dir, "commit", "-q", "-m", "remove");
+  setHarness(dir, { gitleaks: "off" });
+  const r = py(GATE, ["ci", "--base", base], { cwd: dir, env: { ...process.env, GITHUB_HEAD_REF: "", GITHUB_STEP_SUMMARY: "" } });
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /constitution-guard\s+block\s+FAIL/);
+  assert.match(r.stdout, /secrets-scan\s+block\s+FAIL/);
+});
