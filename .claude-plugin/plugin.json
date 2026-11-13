@@ -2,7 +2,7 @@
   "name": "sdd-speckit",
   "displayName": "SDD Speckit Framework",
   "version": "0.2.0",
-  "description": "Spec-Driven Development starter kit: Speckit phase commands, phase-matched subagents, workflow skills, and guard hooks for Claude Code.",
+  "description": "Spec-Driven Development starter kit: Speckit phase commands, layered industry and stack templates, greenfield and brownfield onboarding, phase-matched subagents, and harness gates for Claude Code and GitHub Copilot.",
   "author": {
     "name": "SDD Speckit Framework maintainers"
   },
@@ -36,10 +36,22 @@
       "description": "Collector endpoint. Required only when the exporter is otlp.",
       "default": ""
     },
+    "PROJECT_MODE": {
+      "type": "string",
+      "title": "Project mode",
+      "description": "greenfield, brownfield or auto. Sets the default harness gate modes and the onboarding route.",
+      "default": "auto"
+    },
+    "INDUSTRY_PROFILE": {
+      "type": "string",
+      "title": "Industry profile",
+      "description": "Industry profile id (profiles/industries/): general-saas, healthcare, financial-services, public-sector or none.",
+      "default": "none"
+    },
     "STACK_PRESET": {
       "type": "string",
-      "title": "Tech stack preset",
-      "description": "Preset id that supplies the plan and tasks template overrides.",
+      "title": "Tech stack profile",
+      "description": "Stack profile id (profiles/stacks/) whose fragments are composed into the templates.",
       "default": "custom"
     },
     "PRIMARY_ASSISTANT": {

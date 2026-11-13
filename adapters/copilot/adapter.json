@@ -43,11 +43,29 @@
   },
   "routing": {
     "$comment": "Command -> custom agents it delegates to, mirrored from docs/ARCHITECTURE.md. A command with disallowed-tools gets '<agent>-readonly' variants that lack those tools.",
+    "speckit.onboard": {
+      "agents": [],
+      "writes": "composed templates, `AGENTS.md`, CI gates, harness wiring"
+    },
+    "speckit.discover": {
+      "agents": [
+        "codebase-cartographer"
+      ],
+      "writes": "`.specify/discovery/report.md`, `inventory.json`"
+    },
     "speckit.constitution": {
       "agents": [
         "solution-architect"
       ],
       "writes": "`.specify/memory/constitution.md`"
+    },
+    "speckit.baseline": {
+      "agents": [
+        "codebase-cartographer",
+        "spec-author",
+        "solution-architect"
+      ],
+      "writes": "`specs/_baseline/<area>/spec.md`, `.specify/adoption-roadmap.md`"
     },
     "speckit.specify": {
       "agents": [
@@ -92,14 +110,14 @@
         "implementer",
         "code-reviewer"
       ],
-      "writes": "source code"
+      "writes": "source code, `implementation-log.md`"
     },
     "speckit.converge": {
       "agents": [
         "qa-analyst",
         "code-reviewer"
       ],
-      "writes": "appended gap tasks"
+      "writes": "`converge-report.md`, appended gap tasks"
     },
     "speckit.setup": {
       "agents": [],

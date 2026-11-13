@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "kind": "industry",
+  "id": "healthcare",
+  "label": "Healthcare and life sciences",
+  "description": "Protected health information, clinical interoperability and medical device software: HIPAA safeguards, HL7 FHIR R4 exchange and IEC 62304 safety classes.",
+  "code": "HC",
+  "standards": [
+    {
+      "id": "hipaa-security",
+      "title": "HIPAA Security Rule",
+      "version": "45 CFR Part 164 Subpart C (§164.302–318)",
+      "url": "https://www.ecfr.gov/current/title-45/subtitle-A/subchapter-C/part-164/subpart-C",
+      "reviewedOn": "2026-11-13"
+    },
+    {
+      "id": "hipaa-privacy",
+      "title": "HIPAA Privacy Rule",
+      "version": "45 CFR Part 164 Subpart E (§164.500–534)",
+      "url": "https://www.ecfr.gov/current/title-45/subtitle-A/subchapter-C/part-164/subpart-E",
+      "reviewedOn": "2026-11-13"
+    },
+    {
+      "id": "hipaa-breach",
+      "title": "HIPAA Breach Notification",
+      "version": "45 CFR Part 164 Subpart D (§164.400–414)",
+      "url": "https://www.ecfr.gov/current/title-45/subtitle-A/subchapter-C/part-164/subpart-D",
+      "reviewedOn": "2026-11-13"
+    },
+    {
+      "id": "hl7-fhir-r4",
+      "title": "HL7 FHIR R4",
+      "version": "4.0.1",
+      "url": "https://hl7.org/fhir/R4/",
+      "reviewedOn": "2026-11-13"
+    },
+    {
+      "id": "iec-62304",
+      "title": "IEC 62304 medical device software",
+      "version": "IEC 62304:2006+A1:2015",
+      "url": "https://www.iso.org/standard/64686.html",
+      "reviewedOn": "2026-11-13"
+    }
+  ],
+  "checklistKinds": [
+    "requirements",
+    "security",
+    "privacy",
+    "accessibility",
+    "release",
+    "hipaa-safeguards",
+    "phi-handling"
+  ],
+  "harness": {
+    "sensitivePatterns": [
+      {
+        "id": "us-ssn",
+        "description": "US Social Security number written with hyphens (AAA-GG-SSSS), excluding ranges that are never issued. Use an obviously synthetic value such as 000-00-0000 in fixtures.",
+        "regex": "(?<![\\w-])(?!000|666|9\\d\\d)\\d{3}-(?!00)\\d{2}-(?!0000)\\d{4}(?![\\w-])"
+      }
+    ]
+  }
+}

@@ -14,13 +14,19 @@ disable-model-invocation: true
 
 You are producing a task list someone can execute without re-reading the plan.
 
+## Templates
+
+For every template this phase names, use `.specify/templates/overrides/<file>` when it exists,
+otherwise `.specify/sdd-speckit/templates/<file>`. An override is the base template composed
+with the project's industry and stack profiles, so it wins. A line of the form
+`<!-- slot:… -->` is a composition marker: never copy it into an artifact.
+
 ## Read first
 
-1. `specs/<NNN>-<slug>/plan.md` — the source of truth for structure. Default to the highest `NNN`.
+1. `specs/<NNN>-<slug>/plan.md` — the source of truth for structure. Default to the feature in `.specify/.active-spec`, then to the highest `NNN`.
 2. `specs/<NNN>-<slug>/spec.md` — the requirements each task must cover.
 3. `data-model.md`, `contracts/`, `research.md`.
-4. `.specify/templates/overrides/tasks-template.md`, then
-   `.specify/sdd-speckit/templates/tasks-template.md`. **The preset override wins.**
+4. `tasks-template.md`. Check the override path first.
 
 ## Refuse to start when
 
@@ -44,6 +50,11 @@ Delegate to the **task-planner** custom agent.
 6. Fill the Requirement coverage table. **An empty cell is a gap** — either add a task or state in
    the report that the requirement is deferred.
 7. Derive one task per contract file and one per entity in the data model.
+8. Keep the blocks a profile added: stack tasks `S###` and regulatory tasks `R###`. Give each row
+   its real file path and its dependencies. When a row does not apply to this feature, keep the
+   id and write the reason in place of the path. Add the profile's `NFR-<XX>-nn` requirements to
+   the coverage table.
+9. Write the feature's directory name to `.specify/.active-spec`.
 
 ## Write to
 

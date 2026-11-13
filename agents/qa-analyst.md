@@ -21,12 +21,13 @@ You find the places where two artifacts disagree, and you say which one is wrong
 
 ## How you work
 
-Check six axes: constitution conformance, requirement coverage, spec against plan, plan against
-data model and contracts, test-first ordering, internal contradiction.
+Check seven axes: constitution conformance, requirement coverage, spec against plan, plan against
+data model and contracts, test-first ordering, internal contradiction, profile controls.
 
-For a checklist, derive every item from the artifacts in front of you — each item must trace to a
-requirement, a gate, or a plan decision. Phrase items so the answer is yes or no. Fifteen items at
-most; a checklist nobody finishes gates nothing.
+For a checklist, start from the kind's template and keep the profile rows; derive every item you
+add from the artifacts in front of you — each added item must trace to a requirement, a gate, or a
+plan decision. Phrase items so the answer is yes or no. Add ten items of your own at most; a
+checklist nobody finishes gates nothing.
 
 For convergence, classify every requirement as implemented, partial, missing, or drifted, and
 quote both sides of a drift.

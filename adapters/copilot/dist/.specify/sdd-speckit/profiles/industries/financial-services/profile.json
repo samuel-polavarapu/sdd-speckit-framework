@@ -1,0 +1,68 @@
+{
+  "schema": 1,
+  "kind": "industry",
+  "id": "financial-services",
+  "label": "Financial services and payments",
+  "description": "Payment and ledger systems under PCI DSS, SOX IT general controls, PSD2 strong customer authentication and ISO 20022 messaging.",
+  "code": "FS",
+  "standards": [
+    {
+      "id": "pci-dss",
+      "title": "PCI DSS",
+      "version": "4.0.1",
+      "url": "https://www.pcisecuritystandards.org/document_library/",
+      "reviewedOn": "2026-11-13"
+    },
+    {
+      "id": "sox-404-itgc",
+      "title": "SOX 404 ITGC",
+      "version": "Sarbanes-Oxley Act of 2002 (Pub. L. 107-204), section 404",
+      "url": "https://www.govinfo.gov/app/details/PLAW-107publ204",
+      "reviewedOn": "2026-11-13"
+    },
+    {
+      "id": "psd2",
+      "title": "PSD2 SCA",
+      "version": "Directive (EU) 2015/2366",
+      "url": "https://eur-lex.europa.eu/eli/dir/2015/2366/oj",
+      "reviewedOn": "2026-11-13"
+    },
+    {
+      "id": "iso-20022",
+      "title": "ISO 20022",
+      "version": "Current message catalogue, as profiled by the scheme's usage guideline",
+      "url": "https://www.iso20022.org/",
+      "reviewedOn": "2026-11-13"
+    },
+    {
+      "id": "psd2-sca-rts",
+      "title": "SCA RTS",
+      "version": "Commission Delegated Regulation (EU) 2018/389",
+      "url": "https://eur-lex.europa.eu/eli/reg_del/2018/389/oj",
+      "reviewedOn": "2026-11-13"
+    }
+  ],
+  "checklistKinds": [
+    "requirements",
+    "security",
+    "privacy",
+    "accessibility",
+    "release",
+    "pci-scope",
+    "sox-change"
+  ],
+  "harness": {
+    "sensitivePatterns": [
+      {
+        "id": "fs-track1-data",
+        "description": "Magnetic-stripe track 1 data (start sentinel, format code B, account number, name, expiry and service code). Sensitive authentication data that must never be stored (PCI DSS 3.3.1.1). A parser test that needs a documented synthetic track can allow this pattern id through harness.secretsAllow in .specify/sdd-speckit.json.",
+        "regex": "%B\\d{12,19}\\^[^\\^\\r\\n]{2,26}\\^\\d{7}"
+      },
+      {
+        "id": "fs-track2-data",
+        "description": "Magnetic-stripe track 2 data (start sentinel, account number, separator, expiry, service code, discretionary data, end sentinel). Sensitive authentication data that must never be stored (PCI DSS 3.3.1.1). A parser test that needs a documented synthetic track can allow this pattern id through harness.secretsAllow in .specify/sdd-speckit.json.",
+        "regex": ";\\d{12,19}=\\d{7}\\d*\\?"
+      }
+    ]
+  }
+}

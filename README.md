@@ -92,8 +92,8 @@ runs the work in a phase-matched custom agent, and that agent pins the tier and 
 
 | Component | Count | What |
 |---|---|---|
-| Commands | 10 | One per phase, plus `setup`. Copilot: phase skills `sdd-speckit-*` |
-| Subagents | 7 | `spec-author`, `solution-architect`, `task-planner`, `qa-analyst`, `implementer`, `code-reviewer`, `research-scout`. Copilot: custom agents, plus `qa-analyst-readonly` |
+| Commands | 13 | One per phase, plus `setup`, `onboard`, `discover` and `baseline`. Copilot: phase skills `sdd-speckit-*` |
+| Subagents | 8 | `spec-author`, `solution-architect`, `task-planner`, `qa-analyst`, `implementer`, `code-reviewer`, `research-scout`, `codebase-cartographer`. Copilot: custom agents, plus `qa-analyst-readonly` |
 | Skills | 4 | `speckit-workflow`, `raci-lookup`, `telemetry-report`, `asd-ste100` |
 | Hooks | 4 | Constitution guard, artifact changelog, tier reminder, usage line. Copilot: the guard and the changelog |
 | Templates | 8 | The full Speckit artifact set |
@@ -108,8 +108,8 @@ runs the work in a phase-matched custom agent, and that agent pins the tier and 
 sdd-speckit-framework/
 ├── .claude-plugin/         plugin.json, marketplace.json
 ├── adapters/copilot/       adapter.json (tier, tool, routing maps) + dist/ (committed Copilot render)
-├── commands/               10 slash commands, one per phase
-├── agents/                 7 subagents, model tier per phase
+├── commands/               13 slash commands: nine phases, setup, and three for onboarding
+├── agents/                 8 subagents, model tier per phase
 ├── skills/                 workflow reference, RACI lookup, telemetry digest, STE clarity pass
 ├── hooks/hooks.json        4 deterministic lifecycle hooks
 ├── templates/              8 Speckit artifact templates
