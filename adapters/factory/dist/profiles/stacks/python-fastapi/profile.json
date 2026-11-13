@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "kind": "stack",
+  "id": "python-fastapi",
+  "label": "Python service (FastAPI)",
+  "description": "FastAPI service with SQLAlchemy, Alembic, pytest and Ruff.",
+  "speckit": {
+    "presetHint": "Run `specify preset search` for a published preset that matches this stack before relying on these local overrides."
+  },
+  "defaults": {
+    "language": "Python 3.12",
+    "framework": "FastAPI",
+    "storage": "PostgreSQL 17 + SQLAlchemy 2.0",
+    "migrations": "Alembic",
+    "unitTest": "pytest",
+    "contractTest": "schemathesis",
+    "lint": "Ruff",
+    "typeCheck": "mypy --strict",
+    "packageManager": "uv"
+  },
+  "recommendedMcp": [
+    "github",
+    "atlassian"
+  ],
+  "harness": {
+    "sourceGlobs": [
+      "app/**",
+      "src/**"
+    ],
+    "testGlobs": [
+      "tests/**",
+      "**/test_*.py",
+      "**/*_test.py"
+    ],
+    "commands": {
+      "test": "uv run pytest",
+      "lint": "uv run ruff check .",
+      "format": "uv run ruff format --check .",
+      "lintFile": "uv run ruff check {file}"
+    }
+  },
+  "permissions": {
+    "allow": [
+      "Bash(uv run pytest:*)",
+      "Bash(uv run ruff:*)",
+      "Bash(uv run mypy:*)",
+      "Bash(uv sync:*)",
+      "Bash(uv run alembic history:*)"
+    ]
+  }
+}

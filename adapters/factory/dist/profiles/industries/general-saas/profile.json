@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "kind": "industry",
+  "id": "general-saas",
+  "label": "General SaaS / B2B software",
+  "description": "Multi-tenant B2B software that handles customer and personal data under SOC 2, GDPR and CCPA/CPRA, with OWASP ASVS and WCAG 2.2 AA as the engineering baselines.",
+  "code": "GS",
+  "standards": [
+    {
+      "id": "soc2-tsc",
+      "title": "SOC 2 Trust Services Criteria",
+      "version": "2017, revised points of focus 2022",
+      "url": "https://www.aicpa-cima.com/resources/download/2017-trust-services-criteria-with-revised-points-of-focus-2022",
+      "reviewedOn": "2026-11-13"
+    },
+    {
+      "id": "owasp-asvs",
+      "title": "OWASP ASVS",
+      "version": "5.0",
+      "url": "https://owasp.org/www-project-application-security-verification-standard/",
+      "reviewedOn": "2026-11-13"
+    },
+    {
+      "id": "gdpr",
+      "title": "GDPR",
+      "version": "Regulation (EU) 2016/679",
+      "url": "https://eur-lex.europa.eu/eli/reg/2016/679/oj",
+      "reviewedOn": "2026-11-13"
+    },
+    {
+      "id": "ccpa-cpra",
+      "title": "CCPA / CPRA",
+      "version": "Cal. Civ. Code §1798.100 et seq., as amended by the CPRA",
+      "url": "https://oag.ca.gov/privacy/ccpa",
+      "reviewedOn": "2026-11-13"
+    },
+    {
+      "id": "wcag",
+      "title": "WCAG 2.2 AA",
+      "version": "2.2, conformance level AA",
+      "url": "https://www.w3.org/TR/WCAG22/",
+      "reviewedOn": "2026-11-13"
+    }
+  ],
+  "checklistKinds": ["requirements", "security", "privacy", "accessibility", "release", "soc2-change"],
+  "harness": {
+    "sensitivePatterns": []
+  }
+}

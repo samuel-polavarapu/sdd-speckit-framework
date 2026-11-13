@@ -38,9 +38,9 @@ function writeJson(p, data, log, label) {
 
 /* ------------------------------------------------------------ 1. .specify/ */
 
-/** Speckit integrations to install: the primary's, plus Claude Code's or Copilot's when either is a target. */
+/** Speckit integrations to install: the primary's, plus Claude Code's, Copilot's or Droid's when one is a target. */
 export function speckitIntegrations(cfg) {
-  const ids = [cfg.assistant.primary, ...(cfg.assistant.secondary ?? []).filter((s) => s === "claude" || s === "copilot")];
+  const ids = [cfg.assistant.primary, ...(cfg.assistant.secondary ?? []).filter((s) => ["claude", "copilot", "factory"].includes(s))];
   return [...new Set(ids.map(speckitIntegrationFor))];
 }
 
@@ -114,6 +114,16 @@ export function pluginRegistration(frameworkRoot) {
   };
 }
 
+/** The Droid plugin lives in the marketplace at the framework root (.factory-plugin/marketplace.json). */
+export function factoryRegistration(frameworkRoot) {
+  return {
+    shell: [
+      `droid plugin marketplace add ${frameworkRoot}`,
+      "droid plugin install sdd-speckit@sdd-speckit-framework --scope project",
+    ],
+  };
+}
+
 /* --------------------------------------------------------------- 3. .mcp.json */
 
 export function writeMcpJson(target, frameworkRoot, cfg, { dryRun }) {
@@ -125,21 +135,30 @@ export function writeMcpJson(target, frameworkRoot, cfg, { dryRun }) {
     return { log, servers: {}, pending: [] };
   }
 
-  const p = join(target, ".mcp.json");
-  const existing = readJson(p, { mcpServers: {} });
-  const servers = { ...(existing.mcpServers ?? {}) };
-
+  const chosen = {};
   for (const id of ids) {
-    Object.assign(servers, catalogFragment(frameworkRoot, id, cfg.mcp.inputs?.[id] ?? {}));
+    Object.assign(chosen, catalogFragment(frameworkRoot, id, cfg.mcp.inputs?.[id] ?? {}));
     log.push(`mcp: ${id} (catalog)`);
   }
   for (const c of customs) {
-    Object.assign(servers, customFragment(c));
+    Object.assign(chosen, customFragment(c));
     log.push(`mcp: ${c.id} (custom, ${c.transport})`);
   }
 
-  if (dryRun) log.push(`would write .mcp.json with ${Object.keys(servers).length} servers`);
-  else writeJson(p, { ...existing, mcpServers: servers }, log, `wrote .mcp.json (${Object.keys(servers).length} servers)`);
+  // Each file keeps the servers it already had; the chosen ones are added or replaced.
+  const write = (rel) => {
+    const p = join(target, rel);
+    const existing = readJson(p, { mcpServers: {} });
+    const merged = { ...(existing.mcpServers ?? {}), ...chosen };
+    if (dryRun) log.push(`would write ${rel} with ${Object.keys(merged).length} servers`);
+    else writeJson(p, { ...existing, mcpServers: merged }, log, `wrote ${rel} (${Object.keys(merged).length} servers)`);
+    return merged;
+  };
+
+  const servers = write(".mcp.json");
+  // Droid keeps project MCP servers in .factory/mcp.json. The snippets already use its shape
+  // (type, url, headers, command, args), and ${VAR} appears only in headers, which Droid expands.
+  if (targetsFor(cfg.assistant).factory) write(".factory/mcp.json");
 
   return { log, servers, pending: pendingOauth(frameworkRoot, ids) };
 }
@@ -357,6 +376,7 @@ export function scaffold(targetDir, frameworkRoot, cfg, opts = {}) {
     speckit,
     targets: targetsFor(cfg.assistant),
     registration: pluginRegistration(frameworkRoot),
+    factoryRegistration: factoryRegistration(frameworkRoot),
     pendingOauth: mcp.pending,
     servers: Object.keys(mcp.servers),
     log: [...speckit.log, ...files, ...mcp.log, ...settings, ...editors, ...copilot, ...collector, ...record, ...harness],

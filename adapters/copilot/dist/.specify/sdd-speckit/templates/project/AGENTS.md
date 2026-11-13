@@ -19,8 +19,8 @@ onboard → constitution → specify → clarify → plan → checklist → task
 | implement | source code, ticked tasks, `implementation-log.md` | Follow `tasks.md` order. |
 | converge | appended tasks, a report | Compare the spec with what shipped. |
 
-Run a phase by name. Claude Code: `/sdd-speckit:speckit.<phase>`. GitHub Copilot:
-`/sdd-speckit-<phase>`.
+Run a phase by name. Claude Code: `/sdd-speckit:speckit.<phase>`. GitHub Copilot and Factory
+Droid: `/sdd-speckit-<phase>`.
 
 ### Where things are
 

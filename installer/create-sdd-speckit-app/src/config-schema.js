@@ -45,6 +45,7 @@ export function migrateConfig(record) {
 export const ASSISTANTS = [
   { id: "claude", label: "Claude Code", speckitIntegration: "claude", default: true },
   { id: "copilot", label: "GitHub Copilot", speckitIntegration: "copilot" },
+  { id: "factory", label: "Factory Droid", speckitIntegration: "droid" },
   { id: "cursor", label: "Cursor", speckitIntegration: "cursor-agent" },
   { id: "other", label: "Other / generic", speckitIntegration: "generic" },
 ];
@@ -64,20 +65,25 @@ export function normalizeAssistant(assistant) {
 }
 
 /**
- * Which assistants get files written. Copilot files when copilot is chosen at all. Claude Code
- * files when claude is chosen, and also when neither is: before 0.2.0 every project got the
- * Claude Code files, and a Cursor or generic project still does.
+ * Which assistants get set up. Copilot files when copilot is chosen at all. Factory Droid when
+ * factory is chosen: the Droid plugin is installed from the marketplace, so the project gets
+ * AGENTS.md, the pinned support files and the install steps rather than rendered files. Claude
+ * Code files when claude is chosen, and also when none of the three is: before 0.2.0 every
+ * project got the Claude Code files, and a Cursor or generic project still does.
  */
 export function targetsFor(assistant) {
   const chosen = new Set([assistant?.primary, ...(assistant?.secondary ?? [])]);
   const copilot = chosen.has("copilot");
-  const claude = chosen.has("claude") || !copilot;
-  return { claude, copilot };
+  const factory = chosen.has("factory");
+  const claude = chosen.has("claude") || (!copilot && !factory);
+  return { claude, copilot, factory };
 }
+
+export const TARGET_LABELS = { claude: "Claude Code", copilot: "GitHub Copilot", factory: "Factory Droid" };
 
 export function targetList(assistant) {
   const t = targetsFor(assistant);
-  return [t.claude && "claude", t.copilot && "copilot"].filter(Boolean);
+  return [t.claude && "claude", t.copilot && "copilot", t.factory && "factory"].filter(Boolean);
 }
 
 export const EDITORS = ["vscode", "cursor", "jetbrains", "none"];

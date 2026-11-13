@@ -1,0 +1,20 @@
+{
+  "name": "sdd-speckit",
+  "description": "Spec-Driven Development starter kit: Speckit phase commands, layered industry and stack templates, greenfield and brownfield onboarding, phase-matched subagents, and harness gates for Claude Code and GitHub Copilot.",
+  "version": "0.3.0",
+  "author": {
+    "name": "SDD Speckit Framework maintainers"
+  },
+  "homepage": "https://github.com/github/spec-kit",
+  "repository": "https://github.com/your-org/sdd-speckit-framework",
+  "license": "MIT",
+  "keywords": [
+    "spec-driven-development",
+    "speckit",
+    "sdd",
+    "planning",
+    "workflow",
+    "github-copilot",
+    "factory-droid"
+  ]
+}

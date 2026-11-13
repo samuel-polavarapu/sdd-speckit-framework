@@ -57,7 +57,7 @@ function yamlValue(v) {
   return JSON.stringify(String(v));
 }
 
-function frontmatter(obj) {
+export function frontmatter(obj) {
   const lines = Object.entries(obj)
     .filter(([, v]) => v !== undefined && v !== null)
     .map(([k, v]) => `${k}: ${yamlValue(v)}`);
@@ -70,13 +70,16 @@ function frontmatter(obj) {
  * Sources may carry assistant-specific passages:
  *   <!-- claude-only:start --> ... <!-- claude-only:end -->   dropped for Copilot
  *   <!-- copilot-only ... -->                                 unwrapped for Copilot, verbatim
+ *   <!-- factory-only ... -->                                 dropped for Copilot (see factory.js)
  * Claude Code reads the source as is, so it never sees the Copilot text as live instructions.
  */
 export function rewriteText(text, adapter, { agentRenames = {} } = {}) {
   const support = adapter.supportDir;
   const prefix = adapter.commandSkillPrefix;
 
-  let out = text.replace(/<!-- claude-only:start -->[\s\S]*?<!-- claude-only:end -->\n?/g, "");
+  let out = text
+    .replace(/<!-- claude-only:start -->[\s\S]*?<!-- claude-only:end -->\n?/g, "")
+    .replace(/<!-- factory-only\n[\s\S]*?-->\n?/g, "");
 
   // Protect Copilot-only passages from the rewrites below, then restore them unwrapped.
   const kept = [];
@@ -105,7 +108,7 @@ export function rewriteText(text, adapter, { agentRenames = {} } = {}) {
   return out;
 }
 
-const FORBIDDEN = [/CLAUDE_PLUGIN_ROOT/, /\/sdd-speckit:/, /claude-only:start/, /<!-- copilot-only/];
+const FORBIDDEN = [/CLAUDE_PLUGIN_ROOT/, /\/sdd-speckit:/, /claude-only:start/, /<!-- copilot-only/, /<!-- factory-only/];
 
 function assertClean(path, text) {
   for (const re of FORBIDDEN) {
@@ -137,7 +140,7 @@ function generatedNote(source) {
 
 /* ------------------------------------------------------------------ files */
 
-function walk(dir) {
+export function walk(dir) {
   const out = [];
   for (const e of readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
     const p = join(dir, e.name);
@@ -147,7 +150,7 @@ function walk(dir) {
   return out;
 }
 
-const posix = (p) => p.split(sep).join("/");
+export const posix = (p) => p.split(sep).join("/");
 
 /* ---------------------------------------------------------------- render */
 

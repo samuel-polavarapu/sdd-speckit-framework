@@ -13,9 +13,10 @@ import process from "node:process";
 
 import {
   defaultConfig, validateConfig, speckitIntegrationFor, ASSISTANTS, BOTH, validateCustomMcp,
-  normalizeAssistant, targetsFor, targetList, migrateConfig, gateDefaults, GATE_IDS, GATE_MODES, MODES,
+  normalizeAssistant, targetsFor, targetList, TARGET_LABELS, migrateConfig, gateDefaults, GATE_IDS, GATE_MODES, MODES,
 } from "../src/config-schema.js";
 import { renderCopilot, writeCopilot, checkCopilot } from "../src/copilot.js";
+import { renderFactory, writeFactory, checkFactory } from "../src/factory.js";
 import { askAll, makeUi, promptBackend, Cancelled } from "../src/prompts.js";
 import { scaffold } from "../src/scaffold.js";
 import { loadCatalog, connectorsNeedingInput } from "../src/mcp-map.js";
@@ -73,6 +74,7 @@ Options
   --stack=<id>               ${stacks}      Default: custom
   --assistant=<id>           ${[...ASSISTANTS.map((a) => a.id), BOTH].join(" | ")}      Default: claude
                              ${BOTH} = Claude Code and GitHub Copilot (claude primary, copilot secondary)
+                             factory = Factory Droid (installs the plugin in .factory-plugin/)
   --secondary-assistants=<a,b>
   --mcp=<ids>                Comma separated from: ${connectors}
   --mcp-custom=<name>:<transport>:<url-or-command>   Repeatable
@@ -94,6 +96,12 @@ GitHub Copilot files only (no questions)
   --emit=copilot --check [--strict] [dir]
                              Write nothing. Exit 1 if dir differs from a fresh render. --strict also
                              fails on any file the render would not write (used for the dist/ copy).
+
+Factory Droid plugin (no questions)
+  --emit=factory [dir]       Render the native Droid plugin (phase skills, droids, hooks, templates,
+                             scripts) into dir. The committed copy is adapters/factory/dist/.
+  --emit=factory --check [dir]
+                             Write nothing. Exit 1 if dir differs from a fresh render.
 
 Templates only (no questions)
   --emit=templates [dir]     Compose the templates for dir's recorded industry and stack, or for
@@ -265,7 +273,7 @@ function summarize(cfg, result) {
   lines.push(`  4 Tech stack         ${cfg.stack}`);
   lines.push(`  5 Primary assistant  ${cfg.assistant.primary} (Speckit integration: ${speckitIntegrationFor(cfg.assistant.primary)})`);
   if (cfg.assistant.secondary?.length) lines.push(`    Secondary          ${cfg.assistant.secondary.join(", ")}`);
-  lines.push(`    Files written for  ${targetList(cfg.assistant).map((t) => (t === "claude" ? "Claude Code" : "GitHub Copilot")).join(" + ")}`);
+  lines.push(`    Set up for         ${targetList(cfg.assistant).map((t) => TARGET_LABELS[t]).join(" + ")}`);
   lines.push(`  6 MCP connectors     ${[...(cfg.mcp.catalog ?? []), ...(cfg.mcp.custom ?? []).map((c) => `${c.id} (custom)`)].join(", ") || "none"}`);
   lines.push(`  7 Editor             ${cfg.editor}`);
   lines.push(`  8 Harness gates      ${GATE_IDS.map((id) => `${id}=${cfg.harness.gates[id]}`).join("  ")}`);
@@ -288,6 +296,7 @@ function summarize(cfg, result) {
     lines.push("", "Still to authorize — writing .mcp.json does not complete an OAuth login");
     if (t.claude) lines.push("  Claude Code: open the project and run /mcp once, then authorize.");
     if (t.copilot) lines.push("  GitHub Copilot: start each server when VS Code or the Copilot CLI asks, then authorize.");
+    if (t.factory) lines.push("  Factory Droid: run /mcp in a session, then authorize.");
     for (const c of result.pendingOauth) lines.push(`    - ${c.displayName}`);
   }
 
@@ -327,9 +336,18 @@ function summarize(cfg, result) {
     }
   }
 
+  if (t.factory) {
+    lines.push("", "Factory Droid — install the plugin");
+    for (const c of result.factoryRegistration.shell) lines.push(`    ${c}`);
+    lines.push("  Or use /plugins inside a session. For a shared repo, point the marketplace at your published");
+    lines.push("  copy of the framework (owner/repo) rather than a local path. See docs/FACTORY.md.");
+    if (result.servers?.length) lines.push("  The MCP servers are also in .factory/mcp.json, where Droid reads them. Commit it.");
+  }
+
   lines.push("", `Next step (${cfg.mode})`);
   if (t.claude) lines.push("    Claude Code:     /sdd-speckit:speckit.onboard");
   if (t.copilot) lines.push("    GitHub Copilot:  /sdd-speckit-onboard   (Copilot Chat in agent mode, or the Copilot CLI)");
+  if (t.factory) lines.push("    Factory Droid:   /sdd-speckit-onboard");
   lines.push(
     cfg.mode === "brownfield"
       ? "  It runs discovery on the existing code, then leads you to a derived constitution and baseline specs."
@@ -351,10 +369,38 @@ function emitTemplates(flags, targetDir) {
   return spawnSync("python3", args, { stdio: "inherit" }).status ?? 1;
 }
 
+function emitFactory(flags, targetDir) {
+  let files;
+  try {
+    files = renderFactory(FRAMEWORK_ROOT);
+  } catch (err) {
+    console.error(`Factory render failed: ${err.message}`);
+    return 1;
+  }
+  const dir = resolve(targetDir);
+  if (flags.check === true || flags.check === "true") {
+    const diffs = checkFactory(dir, files);
+    if (!diffs.length) {
+      console.log(`Factory Droid plugin in ${dir} matches the sources (${files.length} files).`);
+      return 0;
+    }
+    console.error(`Factory Droid plugin in ${dir} has drifted from the sources:`);
+    for (const d of diffs) console.error(`  ${d}`);
+    console.error(`\nRe-render: node installer/create-sdd-speckit-app/bin/cli.js --emit=factory ${targetDir}`);
+    return 1;
+  }
+  const dryRun = flags["dry-run"] === true || flags["dry-run"] === "true";
+  const log = writeFactory(dir, files, { dryRun });
+  console.log(`${dryRun ? "Would render" : "Rendered"} ${files.length} Factory Droid plugin files into ${dir}`);
+  for (const l of log) console.log(`  - ${l}`);
+  return 0;
+}
+
 function emit(flags, targetDir) {
   if (flags.emit === "templates") return emitTemplates(flags, targetDir);
+  if (flags.emit === "factory") return emitFactory(flags, targetDir);
   if (flags.emit !== "copilot") {
-    console.error(`--emit="${flags.emit}" is unknown. The values are copilot and templates.`);
+    console.error(`--emit="${flags.emit}" is unknown. The values are copilot, factory and templates.`);
     return 1;
   }
   let files;

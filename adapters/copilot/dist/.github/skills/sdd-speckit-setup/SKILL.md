@@ -63,13 +63,16 @@ label and one-line description, and offer the scan's proposal first.
 ### 5. Primary AI assistant
 
 Single-select: **Claude Code** (default, Speckit key `claude`) · **GitHub Copilot** (`copilot`) ·
-**Both — Claude Code and GitHub Copilot** · **Cursor** (`cursor-agent`) · **other** (`generic`).
+**Factory Droid** (`factory`, Speckit key `droid`) · **Both — Claude Code and GitHub Copilot** ·
+**Cursor** (`cursor-agent`) · **other** (`generic`).
 Unless the answer was *Both*, offer an optional multi-select of secondary assistants from the same
 list. *Both* is recorded as primary `claude`, secondary `["copilot"]`.
 
 The assistants chosen decide the **targets**: Claude Code files are written when `claude` is
-chosen (or when neither `claude` nor `copilot` is), and GitHub Copilot files when `copilot` is.
-Record them as `assistant.targets`.
+chosen (or when none of `claude`, `copilot` and `factory` is), GitHub Copilot files when `copilot`
+is, and the `factory` target when `factory` is. A `factory` target writes no assistant files: tell
+the user to install the Droid plugin (`droid plugin install sdd-speckit@sdd-speckit-framework
+--scope project`, see `docs/FACTORY.md`). Record the targets as `assistant.targets`.
 
 ### 6. MCP connectors
 

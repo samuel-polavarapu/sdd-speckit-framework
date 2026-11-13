@@ -259,8 +259,8 @@ export async function askAssistant(ui, current) {
     label: a.label + (a.default ? " (default)" : ""),
     hint: `Speckit integration: ${a.speckitIntegration}`,
   }));
-  // "Both" sits right after the two assistants this framework renders files for.
-  options.splice(2, 0, {
+  // "Both" sits right after the three assistants this framework ships for (Claude, Copilot, Droid).
+  options.splice(3, 0, {
     value: BOTH,
     label: "Both — Claude Code and GitHub Copilot",
     hint: "Writes the Claude Code plugin files and the .github/ Copilot files",

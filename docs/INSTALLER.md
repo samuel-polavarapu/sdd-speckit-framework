@@ -56,7 +56,7 @@ Every answer is also a flag, so CI needs no TTY.
 | `--mode=` | `greenfield` \| `brownfield` \| `auto` | `auto` |
 | `--industry=` | `general-saas` \| `healthcare` \| `financial-services` \| `public-sector` \| `none` | `none` |
 | `--stack=` | `web-fullstack-node` \| `python-fastapi` \| `dotnet-aspire` \| `custom` \| `auto` | `custom` |
-| `--assistant=` | `claude` \| `copilot` \| `both` \| `cursor` \| `other` | `claude` |
+| `--assistant=` | `claude` \| `copilot` \| `factory` \| `both` \| `cursor` \| `other` | `claude` |
 | `--secondary-assistants=` | comma separated | — |
 | `--mcp=` | comma separated ids from `mcp/catalog.json` | none |
 | `--mcp-custom=` | `<name>:<transport>:<url-or-command>`, repeatable | — |
@@ -82,15 +82,21 @@ Gate defaults by mode:
 
 ### Which assistant gets files
 
-| `--assistant` (+ secondaries) | Claude Code files | GitHub Copilot files |
-|---|---|---|
-| `claude` | yes | no |
-| `copilot` | no | yes |
-| `both` (= `claude` + secondary `copilot`) | yes | yes |
-| `cursor` or `other`, no Claude/Copilot secondary | yes (as before 0.2.0) | no |
+| `--assistant` (+ secondaries) | Claude Code files | GitHub Copilot files | Factory Droid |
+|---|---|---|---|
+| `claude` | yes | no | no |
+| `copilot` | no | yes | no |
+| `factory` | no | no | yes |
+| `both` (= `claude` + secondary `copilot`) | yes | yes | no |
+| `cursor` or `other`, no Claude/Copilot/Droid secondary | yes (as before 0.2.0) | no | no |
 
-`specify init` runs once for the primary assistant's integration, and once more for Claude Code
-or Copilot when either is a secondary.
+A Factory Droid target writes no assistant files of its own. Droid gets the framework from the
+plugin (`droid plugin install sdd-speckit@sdd-speckit-framework --scope project`, printed at the
+end) and reads the generated `AGENTS.md`. The project still gets the pinned support files, the
+composed templates and the CI gates. See [FACTORY.md](FACTORY.md).
+
+`specify init` runs once for the primary assistant's integration, and once more for Claude Code,
+Copilot or Droid (`droid`) when one is a secondary.
 
 ```bash
 npx create-sdd-speckit-app my-app --yes \
@@ -123,7 +129,8 @@ you must supply it, or the run **fails before writing anything**:
 | `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/` | Composed. Replaced on a later run only while unedited. |
 | `.github/CODEOWNERS`, `docs/adr/0000-record-architecture-decisions.md` | Written once. An existing file is kept. |
 | `.gitignore` | Four local harness state paths, appended |
-| `.mcp.json` | Chosen catalog picks plus every custom entry, under `mcpServers`. Read by both assistants. |
+| `.mcp.json` | Chosen catalog picks plus every custom entry, under `mcpServers`. Read by Claude Code and Copilot. |
+| `.factory/mcp.json` | Factory Droid target only. The same servers, merged into any already there. |
 | `.vscode/` or `.idea/` | Per `editors/editor-map.json`, with the extension or plugin of every chosen assistant |
 | **Claude Code target** | |
 | `.claude/sdd-speckit/` | `commands/ agents/ skills/ hooks/ templates/` |
