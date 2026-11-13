@@ -330,7 +330,13 @@ def gitleaks_findings(root, cfg, base, head):
 # -------------------------------------------------------------- approvals
 
 APPROVAL_DIR = "approvals"
-APPROVE_COMMAND = re.compile(r"gate\.py[\"']?\s+approve\b")
+# The approve subcommand however it is spelled: gate.py approve, gate.py "approve", or gate.main(["approve", ...]).
+APPROVE_COMMAND = re.compile(r"\bgate\b.*\bapprove\b|\brun_approve\b", re.IGNORECASE | re.DOTALL)
+# A command that names an approval record under specs/.
+APPROVAL_PATH = re.compile(r"specs/[^\s\"']*\bapprovals\b", re.IGNORECASE)
+# Commands that only look at an approval record, never change it.
+APPROVAL_READ_ONLY = {"cat", "less", "more", "head", "tail", "ls", "grep", "rg", "jq", "diff", "stat", "wc", "file"}
+APPROVAL_READ_ONLY_GIT = {"status", "diff", "log", "show", "add", "commit", "ls-files", "blame"}
 TICKED = re.compile(r"\[[xX]\]")
 
 
@@ -502,7 +508,36 @@ def gate_test_first_hook(ctx):
 
 COMMAND_TOKEN = re.compile(r"[^\s\"'<>|;&=()`]+")
 STATEMENT_SPLIT = re.compile(r"&&|\|\||[;|\n]")
-RM = re.compile(r"(?:^|\s)(?:sudo\s+)?rm\s+(.*)$")
+RM = re.compile(r"(?:^|[\s/\\])rm\s+(.*)$")
+# A command that puts a file's contents in the conversation. Naming a credential file in any other
+# command (echo .env >> .gitignore, git rm --cached .env, cp .env.example .env) is routine.
+READS_CONTENT = re.compile(
+    r"(?:^|[\s;(`'\"/])(?:cat|tac|less|more|head|tail|nl|bat|grep|egrep|fgrep|rg|ag|awk|sed|cut|sort|uniq|"
+    r"strings|xxd|od|hexdump|base64|jq|yq|openssl|source|python3?|node|ruby|perl|curl|wget|scp|rsync)\b"
+    r"|(?:^|\s)\.\s|<\s*\S")
+# Global options that may stand between a tool and its subcommand: git -C dir push, kubectl -n ns delete.
+GLOBAL_OPTIONS = [
+    (re.compile(r"\bgit((?:\s+(?:-[Cc]\s+\S+|--(?:git-dir|work-tree|namespace|exec-path)\s+\S+|-\S+))+)(?=\s)"), "git"),
+    (re.compile(r"\b(terraform|tofu)((?:\s+-\S+)+)(?=\s)"), None),
+    (re.compile(r"\bkubectl((?:\s+(?:-n|--namespace|--context|--cluster|-s|--server|--kubeconfig)\s+\S+|\s+-\S+)+)(?=\s)"), "kubectl"),
+]
+
+
+def normalise_statement(statement):
+    """The statement as the destructive-command rules read it: quotes dropped, and the global
+    options between a tool and its subcommand removed."""
+    out = statement.replace('"', "").replace("'", "")
+    for pattern, name in GLOBAL_OPTIONS:
+        out = pattern.sub(lambda m: name or m.group(1), out)
+    return out
+
+
+def command_words(statement):
+    """-> the words of a statement after any VAR=value, sudo, env, command or time prefix."""
+    words = statement.replace('"', " ").replace("'", " ").split()
+    while words and (re.match(r"^\w+=", words[0]) or words[0] in ("sudo", "env", "command", "time", "nohup", "exec")):
+        words = words[1:]
+    return words
 
 
 def gate_secrets_hook(ctx):
@@ -515,7 +550,8 @@ def gate_secrets_hook(ctx):
         if rel not in ctx["rels"] and secret_path(rel, ctx["cfg"]):
             found.append("%s is a credential file by name, and the tool would read it" % rel)
     for command in ctx["commands"]:
-        for token in COMMAND_TOKEN.findall(command):
+        reading = [st for st in STATEMENT_SPLIT.split(command) if READS_CONTENT.search(st)]
+        for token in COMMAND_TOKEN.findall("\n".join(reading)):
             name = token[2:] if token.startswith("~/") else token
             while name.startswith("./"):
                 name = name[2:]
@@ -541,6 +577,18 @@ def gate_secrets_hook(ctx):
             "environment. For a deliberate test value, add `%s` on the same line." % ("; ".join(found), PRAGMA))
 
 
+def delete_target(token):
+    """./.git/, .git/* and ".git" all name .git; / and /* both name the root."""
+    t = token.strip("\"'").rstrip("&")
+    while t.startswith("./") and len(t) > 2:
+        t = t[2:]
+    if t.endswith("/*") and len(t) > 2:
+        t = t[:-2]
+    while t.endswith("/") and len(t) > 1:
+        t = t[:-1]
+    return "." if t in ("./", "") else t
+
+
 def destructive_delete(arguments):
     flags, targets = set(), []
     for token in arguments.split():
@@ -549,8 +597,8 @@ def destructive_delete(arguments):
         elif token.startswith("-") and len(token) > 1:
             flags.update(token[1:])
         else:
-            targets.append(token.strip("\"'"))
-    protected = set(DEFS.get("protectedDeleteTargets", []))
+            targets.append(delete_target(token))
+    protected = {delete_target(t) for t in DEFS.get("protectedDeleteTargets", [])}
     return bool(flags & {"r", "R"}) and "f" in flags and any(t in protected for t in targets)
 
 
@@ -563,11 +611,12 @@ def gate_destructive_hook(ctx):
             if m and "recursive-delete" not in allow and destructive_delete(m.group(1)):
                 return ("`%s` is a recursive forced delete of a protected path. Ask the person to run it "
                         "if it is intended." % statement.strip())
+            plain = normalise_statement(statement)
             for rule in DEFS.get("destructiveCommands", []):
                 if rule.get("id") in allow:
                     continue
                 try:
-                    hit = re.search(rule["regex"], statement, re.IGNORECASE)
+                    hit = re.search(rule["regex"], plain, re.IGNORECASE)
                 except (re.error, KeyError):
                     continue
                 if hit:
@@ -581,17 +630,27 @@ def gate_approval_hook(ctx):
     for command in ctx["commands"]:
         if APPROVE_COMMAND.search(command):
             return "An approval is a person's decision. Ask the person to run the approve command themselves."
+        for statement in STATEMENT_SPLIT.split(command):
+            if not APPROVAL_PATH.search(statement):
+                continue
+            words = command_words(statement)
+            first = os.path.basename(words[0]) if words else ""
+            read_only = (first in APPROVAL_READ_ONLY or (first == "git" and len(words) > 1 and words[1] in APPROVAL_READ_ONLY_GIT))
+            if not read_only or ">" in statement:
+                return ("`%s` touches an approval record. An approval is a person's decision: the assistant "
+                        "never writes one." % statement.strip())
     needed = []  # (spec, phase, what is about to change)
     for rel in ctx["rels"]:
-        parts = rel.split("/")
+        # Compared without case: on macOS and Windows, Approvals/ is the same directory.
+        parts = rel.lower().split("/")
         if len(parts) >= 3 and parts[0] == "specs" and SPEC_DIR.match(parts[1]):
             if parts[2] == APPROVAL_DIR:
                 return ("%s is an approval record. An approval is a person's decision: the assistant "
                         "never writes one." % rel)
             if len(parts) == 3 and parts[2] == "plan.md":
-                needed.append((parts[1], "plan", rel))
+                needed.append((rel.split("/")[1], "plan", rel))
             if len(parts) == 3 and parts[2] == "tasks.md":
-                needed.append((parts[1], "tasks", rel))
+                needed.append((rel.split("/")[1], "tasks", rel))
     if ctx["source"]:
         spec, _ = active_spec(root)
         if spec:

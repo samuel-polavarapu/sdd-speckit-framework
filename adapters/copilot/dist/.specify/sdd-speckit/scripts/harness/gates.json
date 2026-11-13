@@ -197,13 +197,13 @@
   "destructiveCommands": [
     {
       "id": "force-push",
-      "label": "force push",
-      "regex": "\\bgit\\s+push\\b.*?\\s(?:--force(?![-\\w])|-f\\b|\\+\\S+)"
+      "label": "force push or remote branch deletion",
+      "regex": "\\bgit\\s+push\\b.*?\\s(?:--force(?![-\\w])|--mirror\\b|--delete\\b|-[a-zA-Z]*f[a-zA-Z]*\\b|\\+\\S+|:\\S+)"
     },
     {
       "id": "hard-reset",
       "label": "git reset --hard",
-      "regex": "\\bgit\\s+reset\\s+--hard\\b"
+      "regex": "\\bgit\\s+reset\\b.*\\s--hard\\b"
     },
     {
       "id": "git-clean",
@@ -240,6 +240,8 @@
     "$HOME",
     "${HOME}",
     "$HOME/",
+    "$PWD",
+    "${PWD}",
     ".",
     "./",
     "..",

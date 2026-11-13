@@ -434,3 +434,67 @@ test("the coverage report is generated from the XML and gates on the threshold",
   assert.equal(py(COVERAGE, ["--xml", jacoco, "--out", out, "--threshold", "40"], { cwd: dir }).status, 0);
   assert.match(readFileSync(out, "utf8"), /`com\/acme\/Orders\.java` \| 1\/2 \| 50\.0% \| 1\/2 \| 4 \|/);
 });
+
+test("destructive rules see past global options, quotes, flag clusters and path spellings", { skip }, () => {
+  const dir = project("--mode", "brownfield");
+  for (const command of [
+    "git -C . push --force",
+    "git -c k=v push -f",
+    "git -C . reset --hard",
+    "git reset -q --hard",
+    "terraform -chdir=infra apply",
+    "kubectl -n x delete pod y",
+    "git push origin main -uf",
+    'git push "--force"',
+    "git push '-f'",
+    "git push --mirror",
+    "git push origin --delete feature",
+    "git push origin :feature",
+    "/bin/rm -rf .git",
+    "rm -rf ./.git",
+    "rm -rf .git/*",
+    "rm -rf $PWD",
+    "rm -rf .git&",
+  ]) {
+    const r = sh(dir, command);
+    assert.equal(r.status, 2, command);
+    assert.match(r.stderr, /destructive-commands/, command);
+  }
+  for (const command of ["git -C . push --force-with-lease", "git push -u origin feature-fix", "git push origin HEAD:main", "rm -rf ./node_modules/", "git -C sub status"]) {
+    assert.equal(sh(dir, command).status, 0, command);
+  }
+});
+
+test("naming a credential file outside a read is routine; reading it is not", { skip }, () => {
+  const dir = project("--mode", "brownfield");
+  for (const command of ["echo .env >> .gitignore", "git rm --cached .env", "cp .env.example .env", "ls config/*.pem"]) {
+    assert.equal(sh(dir, command).status, 0, command);
+  }
+  for (const command of ["grep KEY .env", "bash -c 'cat .env'", "python3 -c 'print(open(\".env\").read())'", "source .env", "wc -l < .env"]) {
+    assert.equal(sh(dir, command).status, 2, command);
+  }
+});
+
+test("an approval cannot be forged through the shell or another spelling of its path", { skip }, () => {
+  const dir = project("--mode", "greenfield");
+  for (const command of [
+    "echo '{}' > specs/001-orders/approvals/plan.json",
+    "cp x.json specs/001-orders/approvals/plan.json",
+    "python3 -c \"import gate; gate.main(['approve', 'plan'])\"",
+    'python3 .specify/sdd-speckit/scripts/harness/gate.py "approve" plan',
+    "python3 gate.py \\approve plan",
+    "tee specs/001-orders/Approvals/plan.json < x.json",
+  ]) {
+    const r = sh(dir, command);
+    assert.equal(r.status, 2, command);
+    assert.match(r.stderr, /human-approval/, command);
+  }
+  for (const rel of ["specs/001-orders/Approvals/plan.json", "SPECS/001-orders/approvals/plan.json"]) {
+    const r = hook(dir, "pre", rel, "{}");
+    assert.equal(r.status, 2, rel);
+    assert.match(r.stderr, /human-approval/, rel);
+  }
+  for (const command of ["cat specs/001-orders/approvals/plan.json", "git add specs/001-orders/approvals/plan.json", "ls specs/001-orders/approvals"]) {
+    assert.equal(sh(dir, command).status, 0, command);
+  }
+});

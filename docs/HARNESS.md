@@ -161,8 +161,10 @@ Notes:
 - A file is **source**, **test**, **exempt** or **other**. The runner checks `testGlobs` first,
   then `exemptGlobs`, then `sourceGlobs`. Only a source file triggers the three process gates.
 - `secrets-scan` also checks **reads** and **shell commands**: a file tool that would read a
-  credential file, a command that names one, and a command whose text matches a secret pattern.
-  A read puts the contents in the conversation, so it counts.
+  credential file, a command that reads one (`cat`, `grep`, `source`, an interpreter, a `<`
+  redirect, ...), and a command whose text matches a secret pattern. A read puts the contents in
+  the conversation, so it counts. Naming a credential file without reading it, as in
+  `echo .env >> .gitignore` or `git rm --cached .env`, passes.
 - Credential files by name: `.env`, `.env.*`, `*.pem`, `*.p12`, `*.pfx`, `id_rsa`, `id_ed25519`,
   `credentials.json`, `secrets/**`. Allowed: `.env.example`, `.env.sample`, `.env.template`.
 - Secret patterns: the ten in `gates.json` (private key, AWS key id, GitHub token, Slack token,
@@ -223,15 +225,18 @@ python3 .specify/sdd-speckit/scripts/harness/gate.py approve plan --spec 001-ord
 - **An approval goes stale when the approved file changes.** The gate then reports `stale` and
   the person approves again. Ticking a task box does not change the fingerprint; adding,
   removing or rewording a task does.
-- **The assistant never records an approval.** The gate refuses a write under `approvals/` and
-  a shell command that runs `gate.py approve`. The commands tell the assistant to show the
+- **The assistant never records an approval.** The gate refuses a write under `approvals/` (in
+  any letter case), a shell command that writes there (`>`, `cp`, `tee`, an interpreter, ...; a
+  read, `git add` or `git commit` passes) and a shell command that runs the approve command. The commands tell the assistant to show the
   command and wait.
 - `gate.py status` lists each phase, whether its artifact is written, the state of its approval
   (`valid`, `missing`, `stale`, `insufficient`, `not-ready`) and the next step. The status phase
   (`speckit.status`) reports the same, read-only.
 
-This is a record of a decision, not proof of identity. Anyone with a shell can type a name.
-Use branch protection and `CODEOWNERS` where you need to know who approved.
+This is a record of a decision, not proof of identity. Anyone with a shell can type a name, and
+the hook reads command text, so indirection (a script, a variable, an alias) gets past it. Use
+branch protection and a `CODEOWNERS` entry for `specs/*/approvals/` where you need to know who
+approved.
 
 ### Destructive commands
 
