@@ -97,7 +97,9 @@ def resolve(project, args, defs):
     was_configured = bool(record)
     found = None
 
-    mode = args.mode or record.get("mode") or "auto"
+    # A record from before 0.3.0 has no mode. It is read as greenfield, as migrateConfig in the Node
+    # installer reads it, rather than scanned; its gates stay the migrated set below.
+    mode = args.mode or record.get("mode") or ("greenfield" if was_configured else "auto")
     if mode == "auto":
         found = scan(project)
         mode = found.get("mode", "greenfield")

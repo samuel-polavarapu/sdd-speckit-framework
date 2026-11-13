@@ -169,8 +169,9 @@ def relative(root, path):
 # -------------------------------------------------------------------- git
 
 def git(root, *args, timeout=10):
+    # core.quotePath=false keeps non-ASCII names unquoted in --name-only lists and diff headers.
     try:
-        r = subprocess.run(["git", "-C", root, *args], capture_output=True, text=True, timeout=timeout)
+        r = subprocess.run(["git", "-C", root, "-c", "core.quotePath=false", *args], capture_output=True, text=True, timeout=timeout)
     except (OSError, subprocess.SubprocessError):
         return None
     return r.stdout if r.returncode == 0 else None
@@ -444,7 +445,8 @@ def next_step(rows, gate_mode):
 # Each gate returns a message when it has a finding, and None when it has none.
 
 def gate_constitution_hook(ctx):
-    if not any(r == CONSTITUTION for r in ctx["rels"]):
+    # Compared without case: on macOS and Windows, Constitution.md is the same file.
+    if not any(r.lower() == CONSTITUTION.lower() for r in ctx["rels"]):
         return None
     if os.path.isfile(os.path.join(ctx["root"], UNLOCK)):
         return None
@@ -524,7 +526,13 @@ def gate_secrets_hook(ctx):
         in_command = secret_hits(command, ctx["cfg"])
         if in_command:
             found.append("the command text matches: %s" % ", ".join(in_command))
-    hits = secret_hits(ctx["content"], ctx["cfg"], ctx["rels"][0] if ctx["rels"] else None) if ctx["content"] else []
+    hits = []
+    for rels, content in ctx["parts"]:
+        # Each call's text is checked against its own path, so one allowlisted path in a batch
+        # does not exempt the other calls.
+        for h in (secret_hits(content, ctx["cfg"], rels[0] if rels else None) if content else []):
+            if h not in hits:
+                hits.append(h)
     if hits:
         found.append("the text matches: %s" % ", ".join(hits))
     if not found:
@@ -664,7 +672,9 @@ def run_hook(stage):
     touched = [relative(root, p) or p.lstrip("/") for p in parsed["touched"]]
     if not (rels or parsed["commands"] or touched):
         return 0
-    ctx = {"root": root, "cfg": cfg, "rels": rels, "content": parsed["content"], "touched": touched,
+    parts = [([r for r in (relative(root, p) for p in paths) if r], content)
+             for paths, content in parsed.get("parts") or [(parsed["paths"], parsed["content"])]]
+    ctx = {"root": root, "cfg": cfg, "rels": rels, "content": parsed["content"], "parts": parts, "touched": touched,
            "commands": parsed["commands"], "source": [r for r in rels if classify(r, cfg) == "source"]}
 
     blocks, warns = [], []
@@ -710,6 +720,13 @@ def ci_findings(root, cfg, base, head):
     tests = [p for p in changed if kinds[p] == "test"]
     on = lambda gid: cfg["gates"].get(gid, "off") != "off"
     out, scanner = [], None
+
+    if on("constitution-guard"):
+        # --diff-filter=ACMR leaves out a deleted constitution, and lists only the new name of a
+        # renamed one, so removal is checked separately.
+        status = lines(git(root, "diff", "--name-status", "-M", span, "--", CONSTITUTION, timeout=60))
+        if any(l.split("\t")[0][:1] in ("D", "R") for l in status):
+            out.append(("constitution-guard", "%s was deleted or renamed. Amend it instead (Article V)." % CONSTITUTION))
 
     if on("constitution-guard") and CONSTITUTION in changed:
         diff = git(root, "diff", "-U0", span, "--", CONSTITUTION, timeout=60) or ""
@@ -767,11 +784,17 @@ def ci_findings(root, cfg, base, head):
 
     if on("secrets-scan"):
         diff = git(root, "diff", "-U0", "--diff-filter=ACMR", span, timeout=120) or ""
-        current, added = None, {}
+        current, added, in_header = None, {}, False
         for line in diff.split("\n"):
-            if line.startswith("+++ "):
+            if line.startswith("diff --git "):
+                in_header = True
+            elif in_header and line.startswith("+++ "):
+                # A header line, not an added line that begins with "++ ".
                 current = line[6:] if line.startswith("+++ b/") else None
-            elif line.startswith("+") and current:
+                in_header = False
+            elif line.startswith("@@"):
+                in_header = False
+            elif line.startswith("+") and current and not in_header:
                 added.setdefault(current, []).append(line[1:])
         for rel in changed:
             if secret_path(rel, cfg):

@@ -28,7 +28,7 @@ import sys
 WRITE_TOOL = re.compile(r"write|edit|create|replace|insert|patch|notebook", re.IGNORECASE)
 SHELL_TOOL = re.compile(r"^(bash|sh|zsh|shell|powershell|pwsh|terminal|execute|run_in_terminal)$", re.IGNORECASE)
 PATH_KEYS = ("file_path", "path", "filePath", "notebook_path", "target_file")
-PATCH_FILE = re.compile(r"^\*\*\* (?:Add|Update|Delete) File: (.+)$|^\+\+\+ (?:b/)?(.+)$", re.MULTILINE)
+PATCH_FILE = re.compile(r"^\*\*\* (?:(?:Add|Update|Delete) File|Move to): (.+)$|^\+\+\+ (?:b/)?(.+)$", re.MULTILINE)
 
 
 CONTENT_KEYS = ("content", "new_string", "new_str", "newString", "new_source", "text", "insert_text", "patch", "input", "_raw")
@@ -60,12 +60,14 @@ def parse(d):
     return {"writes": bool(writers), "paths": paths, "touched": touched, "commands": commands,
             "tool": ",".join(p["tool"] for p in writers),
             "content": "\n".join(p["content"] for p in writers if p["content"]),
+            "parts": [part for p in writers for part in p["parts"]],
             "base": d.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()}
 
 
 def parse_one(d):
     """-> {"writes": bool, "paths": [absolute path written], "touched": [absolute path read or
-    written], "commands": [shell command], "tool": str, "content": str, "base": str}.
+    written], "commands": [shell command], "tool": str, "content": str,
+    "parts": [([absolute path written], content)], "base": str}.
 
     content is the text the tool is about to write, as far as the payload shows it: the whole
     file for a write, the replacement text for an edit, the added lines for a patch.
@@ -110,8 +112,11 @@ def parse_one(d):
     if WRITE_TOOL.search(name) and not SHELL_TOOL.search(name):
         commands = []  # an editor tool's "command" argument names an edit action, not a shell command
     writes = bool(WRITE_TOOL.search(name)) and not commands
+    content = "\n".join(chunks) if writes else ""
+    # parts pairs each call's paths with its own content, so a check that depends on the path
+    # (an allowlist entry, say) is applied to that call's text only.
     return {"writes": writes, "paths": paths if writes else [], "touched": paths, "commands": commands,
-            "tool": name, "content": "\n".join(chunks) if writes else "", "base": base}
+            "tool": name, "content": content, "parts": [(paths if writes else [], content)], "base": base}
 
 
 def main():
